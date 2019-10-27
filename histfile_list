@@ -1,0 +1,13 @@
+# Config file for defining which histories to load
+
+# Format is: historyfile:historyfile_type
+# if there are underscores in the historyfile, the loader will attempt
+# to apply username_hostID_date_ignored to the history when those fields
+# aren't explicitly labeled in the history
+
+# historyfile_type is an optional field that helps the loader determine 
+# which format the historyfile is in
+# Valid formats include: msf_prompt, pickle
+
+stark_host3_20191025_2:msf_prompt
+histfile:pickle

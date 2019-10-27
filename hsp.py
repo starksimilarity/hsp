@@ -1,38 +1,31 @@
 import pickle
+from prompt_toolkit import PromptSession, HTML
+from utils.utils import parseconfig
 
-DEFAULT_HIST = 'histfile'
+from command import Command
+from playback import Playback, merge_history
 
-def print_ordered_hist(hist):
-    for k in sorted(hist.keys()):
-        print(f"{k}, {hist[k]}")
-
-
-
-class Command:
-    def __init__(self, time=None, user=None, hostUUID=None, command=None, result=None):
-        self.time = time
-        self.user = user
-        self.hostUUID = hostUUID
-        self.command = command
-        self.result = result
-
-    def __str__(self):
-        return f"{self.time}, {self.user}, {self.hostUUID}, {self.command}, {self.result}"
-
-
-
+DEFAULT_HIST = "sessions/histfile"
+HISTFILE_LIST = "histfile_list"
 
 
 def main():
-    hist = [] 
-    with open(DEFAULT_HIST, 'rb') as infi:
-        hist = pickle.load(infi)
+    files = parseconfig("histfile_list")
+    print(files)
 
-    print_ordered_hist(hist)
+    hist = []
 
-    for k,v in hist.items():
-        print(Command(k, *v))
-    
+    playback_list = []
+    for fi, hint in files.items():
+        playback_list.append(Playback(fi, hint))
 
-if __name__=="__main__":
+    playback = merge_history(playback_list)
+    ps = PromptSession()
+
+    for command in playback.hist:
+        ps.prompt("enter for next")
+        print(command)
+
+
+if __name__ == "__main__":
     main()
