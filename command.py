@@ -1,9 +1,31 @@
-import pickle
 import datetime
 
 
 class Command:
-    def __init__(self, time=None, user=None, hostUUID=None, command=None, result=None):
+    """Defines the structure of a single command
+
+    Attributes
+    ==========
+    time : datetime.datetime
+        time that the command was run
+    user : str
+        user who ran the command
+    hostUUID : str
+        ID of the the host
+    command : str
+        the command the user issued
+    result : str
+        the result from the command
+
+    Methods
+    =======
+    to_dict(self)
+        Returns a dictionary representation of the command
+    __str__(self)
+        how to display the command when printed
+    """
+
+    def __init__(self, time, user=None, hostUUID=None, command=None, result=None):
         self.time = time
         self.user = user
         self.hostUUID = hostUUID
@@ -23,6 +45,8 @@ class Command:
 
     @property
     def time(self):
+        """time that the command was run
+        """
         return self._time
 
     @time.setter
@@ -36,6 +60,8 @@ class Command:
 
     @property
     def user(self):
+        """user who ran the command
+        """
         return self._user
 
     @user.setter
@@ -44,6 +70,8 @@ class Command:
 
     @property
     def hostUUID(self):
+        """ID of the the host
+        """
         return self._hostUUID
 
     @hostUUID.setter
@@ -52,6 +80,8 @@ class Command:
 
     @property
     def command(self):
+        """the command the user issued
+        """
         return self._command
 
     @command.setter
@@ -60,6 +90,8 @@ class Command:
 
     @property
     def result(self):
+        """the result from the command
+        """
         return self._result
 
     @result.setter
