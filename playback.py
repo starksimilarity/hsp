@@ -9,14 +9,33 @@ from command import Command
 
 
 class Playback:
+    """Main class that keeps track of history, current_time, and modes during a playback.
+
+    Attributes
+    ==========
+    current_time : datetime.datetime
+        The time that the playback session is set to
+    playback_mode : int
+        The type of playback for the session (e.g. real-time, paused, 5x, Nx)
+    hist : list[Command]
+        List of Commands to replay during the Playback
+
+    Methods
+    =======
+    load_hist(histfile, histfile_typehint)
+        set the Playback's history
+
+
+    """
+
     def __init__(self, histfile=None, histfile_typehint=None, playback_mode=None):
         self.current_time = 0
         self.playback_mode = playback_mode
 
         if histfile:
-            self._hist = self.load_hist(histfile, histfile_typehint)
+            self.hist = self.load_hist(histfile, histfile_typehint)
         else:
-            self._hist = []
+            self.hist = []
 
     def load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
@@ -35,16 +54,19 @@ class Playback:
         """
 
         if histfile_typehint == "pickle":
-            print("loading pickle info...")
+            print("loading pickle info...")  # debugging
             commands = pickle.load(open(f"sessions/{histfile}", "rb"))
             hist = [x for x in commands if isinstance(x, Command)]
             return hist
         if histfile_typehint == "msf_prompt":
-            print("loading msf_prompt info...")
+            print("loading msf_prompt info...")  # debugging
+            # not currently implemented
             return [Command(1, "stark", 2010, "ls", "asdf")]
 
     @property
     def hist(self):
+        """the command history for the playback sorted by time
+        """
         return sorted(self._hist, key=lambda x: x.time)
 
     @hist.setter
