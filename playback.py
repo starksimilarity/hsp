@@ -28,13 +28,8 @@ class Playback:
 
 
     """
-    modes = [
-        'MANUAL',
-        'REALTIME',
-        'EVENINTERVAL',
-        '5x'
-    ]
 
+    modes = ["MANUAL", "REALTIME", "EVENINTERVAL", "5x"]
 
     def __init__(
         self,
@@ -63,7 +58,7 @@ class Playback:
     def __next__(self):
         try:
             # set current playback time to time of the command
-            self.current_time = self.hist[self.playback_position].time 
+            self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
             return self.hist[self.playback_position]
         except IndexError as e:
@@ -109,7 +104,8 @@ class Playback:
         if val in self.modes:
             self._playback_mode = val
         else:
-            self._playback_mode = 'MANUAL'
+            self._playback_mode = "MANUAL"
+
 
 def merge_history(playbacks):
     """Returns a single, consolidated Playback from a list of multiple playbacks

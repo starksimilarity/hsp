@@ -25,13 +25,17 @@ def main():
     # toolbar = FormattedTextToolbar(HTML('toolbar test'))
 
     def toolbar():
-        return HTML(f"PLAYBACK TIME: {playback.current_time}     "
-                    f"PLAYBACK MODE: {playback.playback_mode}")
+        return HTML(
+            f"PLAYBACK TIME: {playback.current_time}     "
+            f"PLAYBACK MODE: {playback.playback_mode}"
+        )
+
     ps = PromptSession(bottom_toolbar=toolbar)
 
     for command in playback:
         ps.prompt("enter for next")
         print(command)
+
 
 if __name__ == "__main__":
     main()
