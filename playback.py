@@ -28,6 +28,13 @@ class Playback:
 
 
     """
+    modes = [
+        'MANUAL',
+        'REALTIME',
+        'EVENINTERVAL',
+        '5x'
+    ]
+
 
     def __init__(
         self,
@@ -39,6 +46,7 @@ class Playback:
         playback_mode=None,
     ):
         self.current_time = 0
+        self.playback_position = 0
         self.user_hint = user_hint
         self.host_hint = host_hint
         self.date_hint = date_hint
@@ -48,6 +56,18 @@ class Playback:
             self.hist = self.load_hist(histfile, histfile_typehint)
         else:
             self.hist = []
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            self.playback_position += 1
+            # set current playback time to time of the command
+            self.current_time = self.hist[self.playback_position].time 
+            return self.hist[self.playback_position]
+        except IndexError as e:
+            raise StopIteration(e)
 
     def load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
@@ -80,6 +100,16 @@ class Playback:
     def hist(self, val):
         self._hist = val
 
+    @property
+    def playback_mode(self):
+        return self._playback_mode
+
+    @playback_mode.setter
+    def playback_mode(self, val):
+        if val in self.modes:
+            self._playback_mode = val
+        else:
+            self._playback_mode = 'MANUAL'
 
 def merge_history(playbacks):
     """Returns a single, consolidated Playback from a list of multiple playbacks

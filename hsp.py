@@ -24,9 +24,13 @@ def main():
 
     playback = merge_history(playback_list)
     # toolbar = FormattedTextToolbar(HTML('toolbar test'))
-    ps = PromptSession(bottom_toolbar=HTML('toolbar test'))
 
-    for command in playback.hist:
+    def toolbar():
+        return HTML(f"PLAYBACK TIME: {playback.current_time}     "
+                    f"PLAYBACK MODE: {playback.playback_mode}")
+    ps = PromptSession(bottom_toolbar=toolbar)
+
+    for command in playback:
         ps.prompt("enter for next")
         print(command)
 
