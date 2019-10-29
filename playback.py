@@ -1,5 +1,4 @@
 import pickle
-from prompt_toolkit import PromptSession, HTML
 from utils.utils import parseconfig
 
 DEFAULT_HIST = "sessions/histfile"
