@@ -14,7 +14,6 @@ HISTFILE_LIST = "histfile_list"
 
 def main():
     files = parseconfig("histfile_list")
-    print(files)
 
     hist = []
 

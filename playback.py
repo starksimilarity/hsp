@@ -62,9 +62,9 @@ class Playback:
 
     def __next__(self):
         try:
-            self.playback_position += 1
             # set current playback time to time of the command
             self.current_time = self.hist[self.playback_position].time 
+            self.playback_position += 1
             return self.hist[self.playback_position]
         except IndexError as e:
             raise StopIteration(e)
@@ -136,5 +136,4 @@ def merge_history(playbacks):
         except Exception as e:
             print(e)
             continue
-    print(combined_playback.hist)
     return combined_playback
