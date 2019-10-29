@@ -6,6 +6,7 @@ DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 
 from command import Command
+from loader import PBLoader, OffPromptPBLoader, PicklePBLoader
 
 
 class Playback:
@@ -54,14 +55,9 @@ class Playback:
         """
 
         if histfile_typehint == "pickle":
-            print("loading pickle info...")  # debugging
-            commands = pickle.load(open(f"sessions/{histfile}", "rb"))
-            hist = [x for x in commands if isinstance(x, Command)]
-            return hist
+            return PicklePBLoader.load(histfile)
         if histfile_typehint == "msf_prompt":
-            print("loading msf_prompt info...")  # debugging
-            # not currently implemented
-            return [Command(1, "stark", 2010, "ls", "asdf")]
+            return OffPromptPBLoader.load(histfile)
 
     @property
     def hist(self):
@@ -92,8 +88,12 @@ def merge_history(playbacks):
     """
     combined_playback = Playback()
     for pb in playbacks:
-        # can't directly extend the history because of some property masking
-        extended = combined_playback.hist + pb.hist
-        combined_playback.hist = extended
+        try:
+            # can't directly extend the history because of some property masking
+            extended = combined_playback.hist + pb.hist
+            combined_playback.hist = extended
+        except Exception as e:
+            print(e)
+            continue
     print(combined_playback.hist)
     return combined_playback
