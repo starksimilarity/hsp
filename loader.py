@@ -22,7 +22,7 @@ class PBLoader(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, filename, user_hint, host_hint, date_hint):
+    def load(cls, filename, user_hint=None, host_hint=None, date_hint=None):
         """Load a history from a filename
 
         Parameters
@@ -50,7 +50,7 @@ class PicklePBLoader(PBLoader):
     """
 
     @classmethod
-    def load(cls, filename, user_hint, host_hint, date_hint):
+    def load(cls, filename, user_hint=None, host_hint=None, date_hint=None):
         """Load history for pickled list of Commands
 
         This loader assumes that the pickle being loaded is already
@@ -74,7 +74,7 @@ class OffPromptPBLoader(PBLoader):
     """
 
     @classmethod
-    def load(cls, filename, user_hint, host_hint, date_hint):
+    def load(cls, filename, user_hint=None, host_hint=None, date_hint=None):
         """Load log from msf_prompt.OffPromptSession
 
         For an OffPromptSession, a history only includes the command and timestamp,
