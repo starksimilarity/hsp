@@ -2,6 +2,7 @@ import pickle
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
 from prompt_toolkit.formatted_text import HTML
+from time import sleep
 
 from utils.utils import parseconfig
 
@@ -22,7 +23,6 @@ def main():
         playback_list.append(Playback(fi, hint))
 
     playback = merge_history(playback_list)
-    # toolbar = FormattedTextToolbar(HTML('toolbar test'))
 
     def toolbar():
         return HTML(
@@ -33,7 +33,16 @@ def main():
     ps = PromptSession(bottom_toolbar=toolbar)
 
     for command in playback:
-        ps.prompt("enter for next")
+        if playback.playback_mode == 'MANUAL':
+            ps.prompt("enter for next")
+        elif playback.playback_mode == 'REALTIME':
+            # not implemented
+            pass
+        elif playback.playback_mode == 'EVENINTERVAL':
+            sleep(playback.playback_interval)
+        elif playback.playback_mode == '5x':
+            # not implemented
+            pass
         print(command)
 
 

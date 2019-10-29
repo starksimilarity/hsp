@@ -41,6 +41,7 @@ class Playback:
     ):
         self.current_time = 0
         self.playback_position = 0
+        self.playback_interval = 10
         self.user_hint = user_hint
         self.host_hint = host_hint
         self.date_hint = date_hint
@@ -105,6 +106,17 @@ class Playback:
         else:
             self._playback_mode = "MANUAL"
 
+    @property
+    def playback_interval(self):
+        return self._playback_interval
+
+    @playback_interval.setter
+    def playback_interval(self, val):
+        if isinstance(val, int) and val > 0:
+            self._playback_interval = val
+
+        else:
+            raise TypeError("Must be of type int")
 
 def merge_history(playbacks):
     """Returns a single, consolidated Playback from a list of multiple playbacks
