@@ -79,11 +79,16 @@ class Playback:
         hist : list[Commands]
             Ordered list of Commands
         """
+        hints = {
+            'user_hint':self.user_hint,
+            'host_hint':self.host_hint,
+            'date_hint':self.date_hint,
+        }
 
         if histfile_typehint == "pickle":
-            return PicklePBLoader.load(histfile)
+            return PicklePBLoader.load(histfile, *hints)
         if histfile_typehint == "msf_prompt":
-            return OffPromptPBLoader.load(histfile)
+            return OffPromptPBLoader.load(histfile, *hints)
 
     @property
     def hist(self):

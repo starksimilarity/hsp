@@ -31,7 +31,7 @@ def main():
         )
 
     ps = PromptSession(bottom_toolbar=toolbar)
-
+    
     for command in playback:
         if playback.playback_mode == 'MANUAL':
             ps.prompt("enter for next")
