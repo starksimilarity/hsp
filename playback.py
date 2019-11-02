@@ -29,8 +29,19 @@ class Playback:
 
     """
 
-    def __init__(self, histfile=None, histfile_typehint=None, playback_mode=None):
+    def __init__(
+        self,
+        histfile=None,
+        histfile_typehint=None,
+        user_hint=None,
+        host_hint=None,
+        date_hint=None,
+        playback_mode=None,
+    ):
         self.current_time = 0
+        self.user_hint = user_hint
+        self.host_hint = host_hint
+        self.date_hint = date_hint
         self.playback_mode = playback_mode
 
         if histfile:

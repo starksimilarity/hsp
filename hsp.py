@@ -1,5 +1,8 @@
 import pickle
 from prompt_toolkit import PromptSession, HTML
+from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
+from prompt_toolkit.formatted_text import HTML
+
 from utils.utils import parseconfig
 
 from command import Command
@@ -20,12 +23,12 @@ def main():
         playback_list.append(Playback(fi, hint))
 
     playback = merge_history(playback_list)
-    ps = PromptSession()
+    # toolbar = FormattedTextToolbar(HTML('toolbar test'))
+    ps = PromptSession(bottom_toolbar=HTML('toolbar test'))
 
     for command in playback.hist:
         ps.prompt("enter for next")
         print(command)
-
 
 if __name__ == "__main__":
     main()
