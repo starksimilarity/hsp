@@ -1,4 +1,6 @@
 import pickle
+import asyncio
+from time import sleep
 from utils.utils import parseconfig
 
 DEFAULT_HIST = "sessions/histfile"
@@ -46,6 +48,7 @@ class Playback:
         self.host_hint = host_hint
         self.date_hint = date_hint
         self.playback_mode = playback_mode
+        self.loop_lock = asyncio.Lock()
 
         if histfile:
             self.hist = self.load_hist(histfile, histfile_typehint)
@@ -61,6 +64,35 @@ class Playback:
             self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
             return self.hist[self.playback_position]
+        except IndexError as e:
+            raise StopIteration(e)
+
+
+    async def __aiter__(self):
+        # set start-time for REALTIME mode
+        return self
+
+    async def __anext__(self):
+        try:
+            # These if statements control when the function should 
+            if self.playback_mode == "MANUAL":
+                print(self.loop_lock)
+                async with self.loop_lock:
+                    pass
+                sleep(1) # remove after debugging
+            elif self.playback_mode == "REALTIME":
+                # block until the requisite time has passed
+                pass
+            elif self.playback_mode == "EVENINTERVAL":
+                # block for pre-determined amount of time
+                sleep(self.playback_interval)
+            elif self.playback_mode == "5x":
+                # block until the requisite amount of time has passed
+                pass
+
+            self.current_time = self.hist[self.playback_position].time
+            self.playback_position += 1
+            return self.hist[self.playback_position-1]
         except IndexError as e:
             raise StopIteration(e)
 
