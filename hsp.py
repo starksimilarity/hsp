@@ -19,7 +19,6 @@ HISTFILE_LIST = "histfile_list"
 bindings = KeyBindings()
 
 
-
 async def main():
     files = parseconfig("histfile_list")
 
@@ -39,28 +38,28 @@ async def main():
             f"PLAYBACK RATE: {playback.playback_rate}"
         )
 
-    @bindings.add('n')
+    @bindings.add("n")
     def _(event):
         async with playback.loop_lock:
             sleep(1)
             print("ahsdfieif")
-   
-    @bindings.add('p')
+
+    @bindings.add("p")
     def _(event):
         if playback.paused:
             playback.play()
         else:
             playback.pause()
 
-    @bindings.add('f')
+    @bindings.add("f")
     def _(event):
         playback.speedup()
 
-    @bindings.add('s')
+    @bindings.add("s")
     def _(event):
         playback.slowdown()
 
-    #replace this with an application
+    # replace this with an application
     ps = PromptSession(bottom_toolbar=toolbar, key_bindings=bindings)
 
     # async loop:
@@ -68,10 +67,9 @@ async def main():
     # "run" the playback
     # await the function that yields the commands
 
-
     # set a key handler to release the loop_lock and immediately acquire it
     playback.playback_mode = "REALTIME"
-     
+
     async for command in playback:
         print(command)
 
