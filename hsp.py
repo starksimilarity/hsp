@@ -34,7 +34,9 @@ async def main():
     def toolbar():
         return HTML(
             f"PLAYBACK TIME: {playback.current_time}     "
-            f"PLAYBACK MODE: {playback.playback_mode}"
+            f"PLAYBACK MODE: {playback.playback_mode}    "
+            f"PAUSED: {playback.paused}      "
+            f"PLAYBACK RATE: {playback.playback_rate}"
         )
 
     @bindings.add('n')
@@ -42,8 +44,14 @@ async def main():
         async with playback.loop_lock:
             sleep(1)
             print("ahsdfieif")
-        #playback.loop_lock.acquire()
-    
+   
+    @bindings.add('p')
+    def _(event):
+        if playback.paused:
+            playback.play()
+        else:
+            playback.pause()
+
     #replace this with an application
     ps = PromptSession(bottom_toolbar=toolbar, key_bindings=bindings)
 
@@ -54,25 +62,11 @@ async def main():
 
 
     # set a key handler to release the loop_lock and immediately acquire it
-    playback.playback_mode = "5x"
+    playback.playback_mode = "REALTIME"
      
     async for command in playback:
         print(command)
 
-    """
-    for command in playback:
-        if playback.playback_mode == 'MANUAL':
-            ps.prompt("enter for next")
-        elif playback.playback_mode == 'REALTIME':
-            # not implemented
-            pass
-        elif playback.playback_mode == 'EVENINTERVAL':
-            sleep(playback.playback_interval)
-        elif playback.playback_mode == '5x':
-            # not implemented
-            pass
-        print(command)
-    """
 
 if __name__ == "__main__":
     # change this to asyncio.run(main()) if 3.7+ is required

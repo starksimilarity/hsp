@@ -19,7 +19,7 @@ class Playback:
     current_time : datetime.datetime
         The time that the playback session is set to
     playback_mode : int
-        The type of playback for the session (e.g. real-time, paused, 5x, Nx)
+        The type of playback for the session (e.g. real-time, manual, eveninterval)
     hist : list[Command]
         List of Commands to replay during the Playback
 
@@ -31,7 +31,7 @@ class Playback:
 
     """
 
-    modes = ["MANUAL", "REALTIME", "EVENINTERVAL", "5x"]
+    modes = ["MANUAL", "REALTIME", "EVENINTERVAL",]
 
     def __init__(
         self,
@@ -50,7 +50,10 @@ class Playback:
         self.date_hint = date_hint
         self.playback_mode = playback_mode
         self.loop_lock = asyncio.Lock()
-        self._start_time = 0
+        self.paused = False
+        self.playback_rate = 5
+        self._start_time =  datetime.datetime.now() # when the replay was unpaused; 
+        self._elapsed_time_at_pause = datetime.timedelta(0) 
 
         if histfile:
             self.hist = self.load_hist(histfile, histfile_typehint)
@@ -73,6 +76,7 @@ class Playback:
     async def __aiter__(self):
         # set start-time for REALTIME mode
         self._start_time = datetime.datetime.now()
+        self.play()
         return self
 
     async def __anext__(self):
@@ -90,7 +94,8 @@ class Playback:
                 # command time
                 #
                 # BUG: this does not allow for pausing
-                while (datetime.datetime.now() - self._start_time) < \
+                while (((datetime.datetime.now() - self._start_time) + \
+                        self._elapsed_time_at_pause) * self.playback_rate) < \
                         (
                             self.hist[self.playback_position].time - 
                             self.hist[0].time
@@ -98,17 +103,8 @@ class Playback:
                     asyncio.sleep(1)
 
             elif self.playback_mode == "EVENINTERVAL":
-                # block for pre-determined amount of time
+                # yield for pre-determined amount of time
                 asyncio.sleep(self.playback_interval)
-            elif self.playback_mode == "5x":
-                # same logic as "REALTIME" but multiply by 5
-                # BUG: this does not allow for pausing
-                while (datetime.datetime.now() - self._start_time)*5 < \
-                        (
-                            self.hist[self.playback_position].time - 
-                            self.hist[0].time
-                        ):
-                    asyncio.sleep(.5)
 
             self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
@@ -173,7 +169,37 @@ class Playback:
             self._playback_interval = val
 
         else:
-            raise TypeError("Must be of type int")
+            raise TypeError("Must be of type int and greater than 0")
+
+    @property
+    def playback_rate(self):
+        return self._playback_rate
+
+    @playback_rate.setter
+    def playback_rate(self, val):
+        self._playback_rate = val
+
+    @property
+    def paused(self):
+        return self._paused
+
+    @paused.setter
+    def paused(self, val):
+        if isinstance(val, bool):
+            self._paused = val
+        else:
+            raise TypeError("Paused state must be of type bool")
+
+    def pause(self):
+        self._elapsed_time_at_pause += (datetime.datetime.now() - self._start_time)
+        print(f"elapsed_time = {self._elapsed_time_at_pause}")
+        self.paused = True
+
+    def play(self):
+        self._start_time = datetime.datetime.now()
+        print(f"start_time = {self._start_time}")
+        self.paused = False
+
 
 def merge_history(playbacks):
     """Returns a single, consolidated Playback from a list of multiple playbacks
