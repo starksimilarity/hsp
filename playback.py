@@ -35,7 +35,8 @@ class Playback:
         double playback speed
     slowdown(self):
         half playback speed
-
+    goto_time(self, date_time):
+        jump to date_time in the playback
     """
 
     modes = ["MANUAL", "REALTIME", "EVENINTERVAL",]
@@ -227,12 +228,15 @@ class Playback:
         # pause/play wrapping is added to reset the time elapsed checking
         # otherwise you'd end up with multiplying time that had elapsed 
         # at a different rate
-        self.pause()
+        orginally_paused = self.paused
+        if not self.paused:
+            self.pause()
         if self.playback_mode == "EVENTINTERVAL":
             self.playback_interval *= .5
         elif self.playback_mode == "REALTIME":
             self.playback_rate *= 2
-        self.play()
+        if not orginally_paused:
+            self.play()
 
     def slowdown(self):
         """Halve the rate of playback
@@ -242,22 +246,28 @@ class Playback:
         # pause/play wrapping is added to reset the time elapsed checking
         # otherwise you'd end up with multiplying time that had elapsed 
         # at a different rate
-        self.pause()
+        orginally_paused = self.paused
+        if not self.paused:
+            self.pause()
         if self.playback_mode == "EVENINTERVAL":
             self.playback_interval *= 2
         elif self.playback_mode == "REALTIME":
             self.playback_rate *= .5
-        self.play()
+        if not orginally_paused:
+            self.play()
 
     def goto_time(self, date_time):
         if isinstance(date_time, datetime.datetime):
-            self.pause()
+            orginally_paused = self.paused
+            if not self.paused:
+                self.pause()
             self.current_time = date_time
             # future: need a lot more checking for weird cases here (e.g. no hist)
             # set the elapsed time as the delta between the desired set time
             # and the time of the first command
             self._elapsed_time_at_pause = date_time - self.hist[0].time
-            self.play()
+            if not orginally_paused:
+                self.play()
         else:
             raise TypeError("date_time must be datetime.datetime object")
 

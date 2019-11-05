@@ -52,6 +52,14 @@ async def main():
         else:
             playback.pause()
 
+    @bindings.add('f')
+    def _(event):
+        playback.speedup()
+
+    @bindings.add('s')
+    def _(event):
+        playback.slowdown()
+
     #replace this with an application
     ps = PromptSession(bottom_toolbar=toolbar, key_bindings=bindings)
 
