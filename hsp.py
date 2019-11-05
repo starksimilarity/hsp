@@ -44,10 +44,6 @@ async def main():
             print("ahsdfieif")
         #playback.loop_lock.acquire()
     
-    async with playback.loop_lock:
-            pass
-    print(playback.loop_lock)
-    
     #replace this with an application
     ps = PromptSession(bottom_toolbar=toolbar, key_bindings=bindings)
 
@@ -58,9 +54,9 @@ async def main():
 
 
     # set a key handler to release the loop_lock and immediately acquire it
-
+    playback.playback_mode = "5x"
+     
     async for command in playback:
-        ps.prompt('asdf')
         print(command)
 
     """

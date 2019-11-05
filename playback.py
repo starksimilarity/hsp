@@ -1,5 +1,6 @@
-import pickle
 import asyncio
+import datetime
+import pickle
 from time import sleep
 from utils.utils import parseconfig
 
@@ -49,6 +50,7 @@ class Playback:
         self.date_hint = date_hint
         self.playback_mode = playback_mode
         self.loop_lock = asyncio.Lock()
+        self._start_time = 0
 
         if histfile:
             self.hist = self.load_hist(histfile, histfile_typehint)
@@ -70,25 +72,43 @@ class Playback:
 
     async def __aiter__(self):
         # set start-time for REALTIME mode
+        self._start_time = datetime.datetime.now()
         return self
 
     async def __anext__(self):
         try:
             # These if statements control when the function should 
             if self.playback_mode == "MANUAL":
+                #not implemented
                 print(self.loop_lock)
                 async with self.loop_lock:
                     pass
                 sleep(1) # remove after debugging
             elif self.playback_mode == "REALTIME":
-                # block until the requisite time has passed
-                pass
+                # check to see if the diff between now and the "start time" is
+                # less than the diff between the playback_position and first 
+                # command time
+                #
+                # BUG: this does not allow for pausing
+                while (datetime.datetime.now() - self._start_time) < \
+                        (
+                            self.hist[self.playback_position].time - 
+                            self.hist[0].time
+                        ):
+                    asyncio.sleep(1)
+
             elif self.playback_mode == "EVENINTERVAL":
                 # block for pre-determined amount of time
-                sleep(self.playback_interval)
+                asyncio.sleep(self.playback_interval)
             elif self.playback_mode == "5x":
-                # block until the requisite amount of time has passed
-                pass
+                # same logic as "REALTIME" but multiply by 5
+                # BUG: this does not allow for pausing
+                while (datetime.datetime.now() - self._start_time)*5 < \
+                        (
+                            self.hist[self.playback_position].time - 
+                            self.hist[0].time
+                        ):
+                    asyncio.sleep(.5)
 
             self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
