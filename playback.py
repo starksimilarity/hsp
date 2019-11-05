@@ -27,7 +27,14 @@ class Playback:
     =======
     load_hist(histfile, histfile_typehint)
         set the Playback's history
-
+    play(self):
+        start playback from last pause position
+    pause(self):
+        pause playback
+    speedup(self):
+        double playback speed
+    slowdown(self):
+        half playback speed
 
     """
 
@@ -93,7 +100,7 @@ class Playback:
                 # less than the diff between the playback_position and first 
                 # command time
                 #
-                # BUG: this does not allow for pausing
+                # BUG: this probably doesn't handle switching between modes 
                 while (((datetime.datetime.now() - self._start_time) + \
                         self._elapsed_time_at_pause) * self.playback_rate) < \
                         (
@@ -146,7 +153,10 @@ class Playback:
 
     @hist.setter
     def hist(self, val):
-        self._hist = val
+        if isinstance(val, list):
+            self._hist = val
+        else:
+            raise TypeError("History must be a list of Command objects")
 
     @property
     def playback_mode(self):
@@ -191,15 +201,65 @@ class Playback:
             raise TypeError("Paused state must be of type bool")
 
     def pause(self):
+        """pause active playback
+        """
+        if self.paused():
+            return # don't reset any values or do anything if already paused
+
         self._elapsed_time_at_pause += (datetime.datetime.now() - self._start_time)
         print(f"elapsed_time = {self._elapsed_time_at_pause}")
         self.paused = True
 
     def play(self):
+        """start playback from last pause position
+        """
+        if not self.paused():
+            return # don't reset any values or do anything if already playing
         self._start_time = datetime.datetime.now()
         print(f"start_time = {self._start_time}")
         self.paused = False
 
+    def speedup(self):
+        """Double the rate of playback
+        """
+        # future: set max rate
+        # future: consider the side effects of pause/play 
+        # pause/play wrapping is added to reset the time elapsed checking
+        # otherwise you'd end up with multiplying time that had elapsed 
+        # at a different rate
+        self.pause()
+        if self.playback_mode == "EVENTINTERVAL":
+            self.playback_interval *= .5
+        elif self.playback_mode == "REALTIME":
+            self.playback_rate *= 2
+        self.play()
+
+    def slowdown(self):
+        """Halve the rate of playback
+        """
+        # future: set min rate
+        # future: consider the side effects of pause/play
+        # pause/play wrapping is added to reset the time elapsed checking
+        # otherwise you'd end up with multiplying time that had elapsed 
+        # at a different rate
+        self.pause()
+        if self.playback_mode == "EVENINTERVAL":
+            self.playback_interval *= 2
+        elif self.playback_mode == "REALTIME":
+            self.playback_rate *= .5
+        self.play()
+
+    def goto_time(self, date_time):
+        if isinstance(date_time, datetime.datetime):
+            self.pause()
+            self.current_time = date_time
+            # future: need a lot more checking for weird cases here (e.g. no hist)
+            # set the elapsed time as the delta between the desired set time
+            # and the time of the first command
+            self._elapsed_time_at_pause = date_time - self.hist[0].time
+            self.play()
+        else:
+            raise TypeError("date_time must be datetime.datetime object")
 
 def merge_history(playbacks):
     """Returns a single, consolidated Playback from a list of multiple playbacks
