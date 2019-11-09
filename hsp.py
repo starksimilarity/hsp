@@ -8,9 +8,10 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 
 from prompt_toolkit.application import Application
-from prompt_toolkit.layout.containers import HSplit, Window
-from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.layout import Layout
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.layout.containers import HSplit, Window, FloatContainer
+from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
+from prompt_toolkit.layout import Layout, Dimension
 from prompt_toolkit.widgets import Box, Frame, TextArea
 
 from prompt_toolkit.eventloop import use_asyncio_event_loop
@@ -24,7 +25,6 @@ DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 
 
-bindings = KeyBindings()
 
 
 def main():
@@ -38,13 +38,7 @@ def main():
 
     playback = merge_history(playback_list)
 
-    def toolbar():
-        return HTML(
-            f"PLAYBACK TIME: {playback.current_time}     "
-            f"PLAYBACK MODE: {playback.playback_mode}    "
-            f"PAUSED: {playback.paused}      "
-            f"PLAYBACK RATE: {playback.playback_rate}"
-        )
+    bindings = KeyBindings()
 
     @bindings.add("n")
     def _(event):
@@ -76,23 +70,44 @@ def main():
     def _(event):
         event.app.exit()
 
+    def toolbar():
+        return HTML(
+            f"PLAYBACK TIME: {playback.current_time}     "
+            f"PLAYBACK MODE: {playback.playback_mode}    "
+            f"PAUSED: {playback.paused}      "
+            f"PLAYBACK RATE: {playback.playback_rate}"
+        )
+
+    main_area = FormattedTextControl(text='Output goes here', focusable=True)
+    body = Frame(Window(main_area))
+
+    root_container = HSplit([
+        body,
+        #Window(height=1, char='-', style='class:line', dont_extend_height=True),
+        Window(FormattedTextControl(text=toolbar), height=Dimension(max=1, weight=10000), dont_extend_height=True)
+    ], padding_char='-')
+    a = Application(layout=Layout(root_container),
+                    full_screen=True, 
+                    key_bindings=bindings)
+
     playback.playback_mode = "MANUAL"
-
-    # a = Application(layout=Layout(container=body), full_screen=True, key_bindings=bindings)
-    a = Application(full_screen=True, key_bindings=bindings)
-
     # async loop:
     # configure playback to yield a Command after a certain time (depending on mode)
     # "run" the playback
     # await the function that yields the commands
     async def command_loop():
+        await playback.loop_lock.acquire() # give this thread control over playback for manual mode
         async for command in playback:
             if playback.playback_mode == "MANUAL":
-                print("herehere")
                 await playback.loop_lock.acquire()
-            print(command)
+            #print(command)
+            #a.print_text(str(command))
+            a.layout.focus(main_area)
+            a.layout.current_control.text = str(command)
+            a.invalidate()
         else:
-            print("\n\n\nDONEDONEDONE\n\n\n")
+            a.layout.focus(main_area)
+            a.layout.current_control.text = "\n\n\nDONEDONEDONE\n\n\n"
 
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
