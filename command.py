@@ -16,6 +16,10 @@ class Command:
         the command the user issued
     result : str
         the result from the command
+    flagged : bool
+        event is marked
+    comments : str
+        comments for replay
 
     Methods
     =======
@@ -25,12 +29,25 @@ class Command:
         how to display the command when printed
     """
 
-    def __init__(self, time, user=None, hostUUID=None, command=None, result=None):
+    def __init__(
+        self,
+        time,
+        user=None,
+        hostUUID=None,
+        command=None,
+        result=None,
+        flagged=False,
+        comment="",
+        *args,
+        **kwargs,
+    ):
         self.time = time
         self.user = user
         self.hostUUID = hostUUID
         self.command = command
         self.result = result
+        self.flagged = flagged
+        self.comment = comment
 
     def __str__(self):
         return (
@@ -97,3 +114,23 @@ class Command:
     @result.setter
     def result(self, val):
         self._result = val
+
+    @property
+    def flagged(self):
+        return self._flagged
+
+    @flagged.setter
+    def flagged(self, val):
+        if isinstance(val, bool):
+            self._flagged = val
+        else:
+            raise TypeError("flagged attribute must be of type bool")
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @comment.setter
+    def comment(self, val):
+        self._comment = val
+

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import itertools
 import pickle
 from time import sleep
 from utils.utils import parseconfig
@@ -274,6 +275,10 @@ class Playback:
                 self.play()
         else:
             raise TypeError("date_time must be datetime.datetime object")
+
+    def change_playback_mode(self):
+        current_index = self.modes.index(self.playback_mode)
+        self.playback_mode = self.modes[(current_index + 1) % len(self.modes)]
 
 
 def merge_history(playbacks):

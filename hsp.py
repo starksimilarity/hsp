@@ -1,14 +1,20 @@
+"""Example UI for creating and controlling a playback object
+
+Creates a playback object and a prompt_toolkit Application and runs
+each asynchronously.
+
+Author: starksimilarity@gmail.com
+"""
+
 import asyncio
-import pickle
 
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
-from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.formatted_text import HTML, FormattedText
 from prompt_toolkit.key_binding import KeyBindings
 
 from prompt_toolkit.application import Application
-from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.layout.containers import HSplit, Window, FloatContainer
+from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout import Layout, Dimension
 from prompt_toolkit.widgets import Box, Frame, TextArea
@@ -16,7 +22,6 @@ from prompt_toolkit.widgets import Box, Frame, TextArea
 from prompt_toolkit.eventloop import use_asyncio_event_loop
 
 
-from command import Command
 from playback import Playback, merge_history
 from utils.utils import parseconfig
 
@@ -25,9 +30,9 @@ HISTFILE_LIST = "histfile_list"
 
 
 def main():
+    """Sets up playback and app then runs both in async loop
+    """
     files = parseconfig("histfile_list")
-
-    hist = []
 
     playback_list = []
     for fi, hint in files.items():
@@ -66,6 +71,10 @@ def main():
     def _(event):
         event.app.exit()
 
+    @bindings.add("c-m")
+    def _(event):
+        playback.change_playback_mode()
+
     def toolbar():
         return HTML(
             "<table><tr>"
@@ -76,13 +85,16 @@ def main():
             "</tr></table>"
         )
 
-    main_area = FormattedTextControl(text="Output goes here", focusable=True)
-    body = Frame(Window(main_area))
+    old_command_window = FormattedTextControl(text="Output goes here", focusable=True)
+    new_command_window = FormattedTextControl(text="Output goes here", focusable=True)
+
+    body = Frame(
+        HSplit([Frame(Window(old_command_window)), Frame(Window(new_command_window))])
+    )
 
     root_container = HSplit(
         [
             body,
-            # Window(height=1, char='-', style='class:line', dont_extend_height=True),
             Window(
                 FormattedTextControl(text=toolbar),
                 height=Dimension(max=1, weight=10000),
@@ -98,28 +110,68 @@ def main():
     playback.playback_mode = "MANUAL"
 
     def render_command(command):
-        return (
-            f"{command.hostUUID}:{command.user} > {command.command}\n"
-            f"{command.result}"
-        )
+        """Return string of command object specific to this UI
+
+        Parameters
+        ==========
+        command : command.Command
+            Command object to get string for
+
+        Returns
+        =======
+        _ : str
+            String representation of Command object
+        """
+        try:
+            if command.flagged:
+                color = 'ansired'
+            else:
+                color = 'ansiwhite'
+        except:
+            color = 'ansiwhite'
+        try:
+            return [(color, (
+                f"{command.hostUUID}:{command.user} > {command.command}\n"
+                f"{command.result}"
+            ))]
+        except:
+            # if this happens, we probaly didn't get an actual Command object
+            # but we can have it rendered in the window anyway
+            return [(color, str(command))]
+
+    def display_new_command(command):
+        """Moves text from lower window to upper then adds new command text
+        """
+        a.layout.focus(old_command_window)
+        a.layout.current_control.text = new_command_window.text
+        a.layout.focus(new_command_window)
+        a.layout.current_control.text = FormattedText(render_command(command))
+        a.invalidate()
 
     async def command_loop():
-        await playback.loop_lock.acquire()  # give this thread control over playback for manual mode
+        """Primary loop for receiving/displaying commands from playback
+
+        Asynchronously iterates over the Command objects in the playback's history.
+        Takes the command object and displays it to the screen
+        """
+        # give this thread control over playback for manual mode
+        # lock is released by certain key bindings
+        await playback.loop_lock.acquire()
         async for command in playback:
             if playback.playback_mode == "MANUAL":
+                # regain the lock for MANUAL mode
                 await playback.loop_lock.acquire()
-            # print(command)
-            # a.print_text(str(command))
-            a.layout.focus(main_area)
-            a.layout.current_control.text = render_command(command)
-            a.invalidate()
+
+            # Update text in windows
+            display_new_command(command)
         else:
-            a.layout.focus(main_area)
-            a.layout.current_control.text = "\n\n\nDONEDONEDONE\n\n\n"
+            display_new_command("\n\n\nDONEDONEDONEDONE\n\n\n")
 
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
     try:
+        # Run command_loop and a.run_async next to each other
+        # future: handle when one completes before the other
         loop.run_until_complete(
             asyncio.gather(command_loop(), a.run_async().to_asyncio_future())
         )
