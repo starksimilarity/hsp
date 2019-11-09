@@ -84,7 +84,6 @@ class Playback:
         # set start-time for REALTIME mode
         self._start_time = datetime.datetime.now()
         self._elapsed_time_at_pause = datetime.timedelta(0)
-        #self.play()
         return self
 
     async def __anext__(self):
@@ -97,9 +96,9 @@ class Playback:
                 # not implemented
                 print(self.loop_lock)
                 async with self.loop_lock:
+                    print(self.loop_lock)
                     pass
-                sleep(1)
-                await asyncio.sleep(1)  # remove after debugging
+                await asyncio.sleep(.01)  # remove after debugging
             elif self.playback_mode == "REALTIME":
                 # check to see if the diff between now and the "start time" is
                 # less than the diff between the playback_position and first
@@ -117,10 +116,13 @@ class Playback:
 
             elif self.playback_mode == "EVENINTERVAL":
                 # yield for pre-determined amount of time
+                # future: change this to be a loop that checks to see if
+                #       the apprpriate amount of un-pasued time has passed
                 await asyncio.sleep(self.playback_interval)
 
-            #self.current_time = self.hist[self.playback_position].time
+            # self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
+            await asyncio.sleep(.001)
             return self.hist[self.playback_position - 1]
         except IndexError as e:
             raise StopAsyncIteration(e)
@@ -213,7 +215,7 @@ class Playback:
             return  # don't reset any values or do anything if already paused
 
         self._elapsed_time_at_pause += datetime.datetime.now() - self._start_time
-        print(f"elapsed_time = {self._elapsed_time_at_pause}") #debugging
+        print(f"elapsed_time = {self._elapsed_time_at_pause}")  # debugging
         self.paused = True
 
     def play(self):
@@ -222,7 +224,7 @@ class Playback:
         if not self.paused:
             return  # don't reset any values or do anything if already playing
         self._start_time = datetime.datetime.now()
-        print(f"start_time = {self._start_time}") #debugging
+        print(f"start_time = {self._start_time}")  # debugging
         self.paused = False
 
     def speedup(self):
@@ -236,10 +238,10 @@ class Playback:
         orginally_paused = self.paused
         if not self.paused:
             self.pause()
-        
+
         self.playback_interval *= 0.5
         self.playback_rate *= 2
-        
+
         if not orginally_paused:
             self.play()
 
@@ -252,10 +254,10 @@ class Playback:
         # otherwise you'd end up with multiplying time that had elapsed
         # at a different rate
         orginally_paused = self.paused
-        print('slowing down')
+        print("slowing down")
         if not self.paused:
             self.pause()
-        
+
         self.playback_interval *= 2
         self.playback_rate *= 0.5
 
