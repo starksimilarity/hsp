@@ -1,6 +1,5 @@
 import asyncio
 import pickle
-from time import sleep
 
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
@@ -25,8 +24,6 @@ DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 
 
-
-
 def main():
     files = parseconfig("histfile_list")
 
@@ -41,6 +38,8 @@ def main():
     bindings = KeyBindings()
 
     @bindings.add("n")
+    @bindings.add("down")
+    @bindings.add("right")
     def _(event):
         try:
             playback.loop_lock.release()
@@ -63,47 +62,56 @@ def main():
         playback.slowdown()
 
     @bindings.add("q")
-    def _(event):
-        event.app.exit()
-
     @bindings.add("c-c")
     def _(event):
         event.app.exit()
 
     def toolbar():
         return HTML(
-            f"PLAYBACK TIME: {playback.current_time}     "
-            f"PLAYBACK MODE: {playback.playback_mode}    "
-            f"PAUSED: {playback.paused}      "
-            f"PLAYBACK RATE: {playback.playback_rate}"
+            "<table><tr>"
+            f"<th>PLAYBACK TIME: {playback.current_time}</th>     "
+            f"<th>PLAYBACK MODE: {playback.playback_mode}</th>    "
+            f"<th>PAUSED: {playback.paused}</th>      "
+            f"<th>PLAYBACK RATE: {playback.playback_rate}</th>"
+            "</tr></table>"
         )
 
-    main_area = FormattedTextControl(text='Output goes here', focusable=True)
+    main_area = FormattedTextControl(text="Output goes here", focusable=True)
     body = Frame(Window(main_area))
 
-    root_container = HSplit([
-        body,
-        #Window(height=1, char='-', style='class:line', dont_extend_height=True),
-        Window(FormattedTextControl(text=toolbar), height=Dimension(max=1, weight=10000), dont_extend_height=True)
-    ], padding_char='-')
-    a = Application(layout=Layout(root_container),
-                    full_screen=True, 
-                    key_bindings=bindings)
+    root_container = HSplit(
+        [
+            body,
+            # Window(height=1, char='-', style='class:line', dont_extend_height=True),
+            Window(
+                FormattedTextControl(text=toolbar),
+                height=Dimension(max=1, weight=10000),
+                dont_extend_height=True,
+            ),
+        ],
+        padding_char="-",
+    )
+    a = Application(
+        layout=Layout(root_container), full_screen=True, key_bindings=bindings
+    )
 
     playback.playback_mode = "MANUAL"
-    # async loop:
-    # configure playback to yield a Command after a certain time (depending on mode)
-    # "run" the playback
-    # await the function that yields the commands
+
+    def render_command(command):
+        return (
+            f"{command.hostUUID}:{command.user} > {command.command}\n"
+            f"{command.result}"
+        )
+
     async def command_loop():
-        await playback.loop_lock.acquire() # give this thread control over playback for manual mode
+        await playback.loop_lock.acquire()  # give this thread control over playback for manual mode
         async for command in playback:
             if playback.playback_mode == "MANUAL":
                 await playback.loop_lock.acquire()
-            #print(command)
-            #a.print_text(str(command))
+            # print(command)
+            # a.print_text(str(command))
             a.layout.focus(main_area)
-            a.layout.current_control.text = str(command)
+            a.layout.current_control.text = render_command(command)
             a.invalidate()
         else:
             a.layout.focus(main_area)
@@ -117,7 +125,6 @@ def main():
         )
     finally:
         loop.close()
-
 
 
 if __name__ == "__main__":

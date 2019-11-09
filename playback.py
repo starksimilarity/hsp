@@ -95,7 +95,7 @@ class Playback:
                 # not implemented
                 async with self.loop_lock:
                     pass
-                await asyncio.sleep(.01)  
+                await asyncio.sleep(0.01)
             elif self.playback_mode == "REALTIME":
                 # check to see if the diff between now and the "start time" is
                 # less than the diff between the playback_position and first
@@ -119,7 +119,7 @@ class Playback:
 
             self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
-            await asyncio.sleep(.001)
+            await asyncio.sleep(0.001)
             return self.hist[self.playback_position - 1]
         except IndexError as e:
             raise StopAsyncIteration(e)
@@ -212,7 +212,7 @@ class Playback:
             return  # don't reset any values or do anything if already paused
 
         self._elapsed_time_at_pause += datetime.datetime.now() - self._start_time
-        #print(f"elapsed_time = {self._elapsed_time_at_pause}")  # debugging
+        # print(f"elapsed_time = {self._elapsed_time_at_pause}")  # debugging
         self.paused = True
 
     def play(self):
@@ -221,7 +221,7 @@ class Playback:
         if not self.paused:
             return  # don't reset any values or do anything if already playing
         self._start_time = datetime.datetime.now()
-        #print(f"start_time = {self._start_time}")  # debugging
+        # print(f"start_time = {self._start_time}")  # debugging
         self.paused = False
 
     def speedup(self):
