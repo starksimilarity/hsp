@@ -58,7 +58,7 @@ class Playback:
         self.date_hint = date_hint
         self.playback_mode = playback_mode
         self.loop_lock = asyncio.Lock()
-        self.paused = False
+        self.paused = True
         self.playback_rate = 5
         self._start_time = datetime.datetime.now()  # when the replay was unpaused;
         self._elapsed_time_at_pause = datetime.timedelta(0)
@@ -83,18 +83,23 @@ class Playback:
     async def __aiter__(self):
         # set start-time for REALTIME mode
         self._start_time = datetime.datetime.now()
-        self.play()
+        self._elapsed_time_at_pause = datetime.timedelta(0)
+        #self.play()
         return self
 
     async def __anext__(self):
         try:
+            while self.paused:
+                print("Loop Paused, sleeping 1")
+                await asyncio.sleep(1)
             # These if statements control when the function should
             if self.playback_mode == "MANUAL":
                 # not implemented
                 print(self.loop_lock)
                 async with self.loop_lock:
                     pass
-                sleep(1)  # remove after debugging
+                sleep(1)
+                await asyncio.sleep(1)  # remove after debugging
             elif self.playback_mode == "REALTIME":
                 # check to see if the diff between now and the "start time" is
                 # less than the diff between the playback_position and first
@@ -108,17 +113,17 @@ class Playback:
                     )
                     * self.playback_rate
                 ) < (self.hist[self.playback_position].time - self.hist[0].time):
-                    asyncio.sleep(1)
+                    await asyncio.sleep(1)
 
             elif self.playback_mode == "EVENINTERVAL":
                 # yield for pre-determined amount of time
-                asyncio.sleep(self.playback_interval)
+                await asyncio.sleep(self.playback_interval)
 
-            self.current_time = self.hist[self.playback_position].time
+            #self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
             return self.hist[self.playback_position - 1]
         except IndexError as e:
-            raise StopIteration(e)
+            raise StopAsyncIteration(e)
 
     def load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
@@ -176,11 +181,11 @@ class Playback:
 
     @playback_interval.setter
     def playback_interval(self, val):
-        if isinstance(val, int) and val > 0:
+        if isinstance(val, (int, float)) and val > 0:
             self._playback_interval = val
 
         else:
-            raise TypeError("Must be of type int and greater than 0")
+            raise TypeError("Must be of type float and greater than 0")
 
     @property
     def playback_rate(self):
@@ -204,20 +209,20 @@ class Playback:
     def pause(self):
         """pause active playback
         """
-        if self.paused():
+        if self.paused:
             return  # don't reset any values or do anything if already paused
 
         self._elapsed_time_at_pause += datetime.datetime.now() - self._start_time
-        print(f"elapsed_time = {self._elapsed_time_at_pause}")
+        print(f"elapsed_time = {self._elapsed_time_at_pause}") #debugging
         self.paused = True
 
     def play(self):
         """start playback from last pause position
         """
-        if not self.paused():
+        if not self.paused:
             return  # don't reset any values or do anything if already playing
         self._start_time = datetime.datetime.now()
-        print(f"start_time = {self._start_time}")
+        print(f"start_time = {self._start_time}") #debugging
         self.paused = False
 
     def speedup(self):
@@ -231,10 +236,10 @@ class Playback:
         orginally_paused = self.paused
         if not self.paused:
             self.pause()
-        if self.playback_mode == "EVENTINTERVAL":
-            self.playback_interval *= 0.5
-        elif self.playback_mode == "REALTIME":
-            self.playback_rate *= 2
+        
+        self.playback_interval *= 0.5
+        self.playback_rate *= 2
+        
         if not orginally_paused:
             self.play()
 
@@ -247,12 +252,13 @@ class Playback:
         # otherwise you'd end up with multiplying time that had elapsed
         # at a different rate
         orginally_paused = self.paused
+        print('slowing down')
         if not self.paused:
             self.pause()
-        if self.playback_mode == "EVENINTERVAL":
-            self.playback_interval *= 2
-        elif self.playback_mode == "REALTIME":
-            self.playback_rate *= 0.5
+        
+        self.playback_interval *= 2
+        self.playback_rate *= 0.5
+
         if not orginally_paused:
             self.play()
 
