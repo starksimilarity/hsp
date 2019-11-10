@@ -76,6 +76,13 @@ def main():
         playback.change_playback_mode()
 
     def toolbar():
+        """Returns bottom toolbar for app
+
+        Returns
+        =======
+        _ : prompt_toolkit.formatted_text.HTML
+            Text for the bottom toolbar for the app
+        """
         return HTML(
             "<table><tr>"
             f"<th>PLAYBACK TIME: {playback.current_time}</th>     "
@@ -130,7 +137,8 @@ def main():
         except:
             color = 'ansiwhite'
         try:
-            return [(color, (
+            return [('bg:ansiblue ansiwhite', f"{command.time.ctime()}\n"),
+                    (color, (
                 f"{command.hostUUID}:{command.user} > {command.command}\n"
                 f"{command.result}"
             ))]

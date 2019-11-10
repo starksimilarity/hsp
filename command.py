@@ -69,7 +69,7 @@ class Command:
     @time.setter
     def time(self, val):
         if isinstance(val, datetime.datetime):
-            self._time = val
+            self._time = val.replace(microsecond=0)
         elif isinstance(val, int):
             self._time = datetime.datetime.fromordinal(val)
         else:

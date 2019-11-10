@@ -1,9 +1,10 @@
+"""Defines the playback class and helper method to combine playbacks
+
+Author: starksimilarity@gmail.com
+"""
+
 import asyncio
 import datetime
-import itertools
-import pickle
-from time import sleep
-from utils.utils import parseconfig
 
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
@@ -23,10 +24,26 @@ class Playback:
         The type of playback for the session (e.g. real-time, manual, eveninterval)
     hist : list[Command]
         List of Commands to replay during the Playback
-
+    playback_position : int
+        offset into the hist list that is the current command
+    playback_interval : int
+        seconds to wait between releasing commands in "EVENINTERVAL" mode
+    user_hint : str
+        use hint for user during loading history if it can't be read explicitly
+    host_hint : str
+        use hint for host during loading history if it can't be read explicitly
+    date_hint : datetime.date 
+        use hint for date during loading history if it can't be read explicitly
+    self.loop_lock : asyncio.Lock()
+        Lock for "MANUAL" playback mode
+    paused : bool
+        Is the playback currently paused
+    playback_rate : (int, float)
+        Multiplier for "REALTIME" playback mode
+    
     Methods
     =======
-    load_hist(histfile, histfile_typehint)
+    _load_hist(histfile, histfile_typehint)
         set the Playback's history
     play(self):
         start playback from last pause position
@@ -38,6 +55,8 @@ class Playback:
         half playback speed
     goto_time(self, date_time):
         jump to date_time in the playback
+    change_playback_mode(self):
+        cycle through the available playback modes
     """
 
     modes = ["MANUAL", "REALTIME", "EVENINTERVAL"]
@@ -65,7 +84,7 @@ class Playback:
         self._elapsed_time_at_pause = datetime.timedelta(0)
 
         if histfile:
-            self.hist = self.load_hist(histfile, histfile_typehint)
+            self.hist = self._load_hist(histfile, histfile_typehint)
         else:
             self.hist = []
 
@@ -125,7 +144,7 @@ class Playback:
         except IndexError as e:
             raise StopAsyncIteration(e)
 
-    def load_hist(self, histfile, histfile_typehint=None):
+    def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
 
         Parameters
@@ -150,6 +169,8 @@ class Playback:
             return PicklePBLoader.load(histfile, *hints)
         if histfile_typehint == "msf_prompt":
             return OffPromptPBLoader.load(histfile, *hints)
+        else:
+            return []
 
     @property
     def hist(self):
@@ -277,6 +298,8 @@ class Playback:
             raise TypeError("date_time must be datetime.datetime object")
 
     def change_playback_mode(self):
+        """Rotates to the next playback_mode available
+        """
         current_index = self.modes.index(self.playback_mode)
         self.playback_mode = self.modes[(current_index + 1) % len(self.modes)]
 
