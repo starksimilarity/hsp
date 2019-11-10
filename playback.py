@@ -1,8 +1,10 @@
+"""Defines the playback class and helper method to combine playbacks
+
+Author: starksimilarity@gmail.com
+"""
+
 import asyncio
 import datetime
-import pickle
-from time import sleep
-from utils.utils import parseconfig
 
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
@@ -22,10 +24,26 @@ class Playback:
         The type of playback for the session (e.g. real-time, manual, eveninterval)
     hist : list[Command]
         List of Commands to replay during the Playback
-
+    playback_position : int
+        offset into the hist list that is the current command
+    playback_interval : int
+        seconds to wait between releasing commands in "EVENINTERVAL" mode
+    user_hint : str
+        use hint for user during loading history if it can't be read explicitly
+    host_hint : str
+        use hint for host during loading history if it can't be read explicitly
+    date_hint : datetime.date 
+        use hint for date during loading history if it can't be read explicitly
+    self.loop_lock : asyncio.Lock()
+        Lock for "MANUAL" playback mode
+    paused : bool
+        Is the playback currently paused
+    playback_rate : (int, float)
+        Multiplier for "REALTIME" playback mode
+    
     Methods
     =======
-    load_hist(histfile, histfile_typehint)
+    _load_hist(histfile, histfile_typehint)
         set the Playback's history
     play(self):
         start playback from last pause position
@@ -37,6 +55,8 @@ class Playback:
         half playback speed
     goto_time(self, date_time):
         jump to date_time in the playback
+    change_playback_mode(self):
+        cycle through the available playback modes
     """
 
     modes = ["MANUAL", "REALTIME", "EVENINTERVAL"]
@@ -58,13 +78,13 @@ class Playback:
         self.date_hint = date_hint
         self.playback_mode = playback_mode
         self.loop_lock = asyncio.Lock()
-        self.paused = False
+        self.paused = True
         self.playback_rate = 5
         self._start_time = datetime.datetime.now()  # when the replay was unpaused;
         self._elapsed_time_at_pause = datetime.timedelta(0)
 
         if histfile:
-            self.hist = self.load_hist(histfile, histfile_typehint)
+            self.hist = self._load_hist(histfile, histfile_typehint)
         else:
             self.hist = []
 
@@ -83,18 +103,19 @@ class Playback:
     async def __aiter__(self):
         # set start-time for REALTIME mode
         self._start_time = datetime.datetime.now()
-        self.play()
+        self._elapsed_time_at_pause = datetime.timedelta(0)
         return self
 
     async def __anext__(self):
         try:
+            while self.paused:
+                await asyncio.sleep(1)
             # These if statements control when the function should
             if self.playback_mode == "MANUAL":
                 # not implemented
-                print(self.loop_lock)
                 async with self.loop_lock:
                     pass
-                sleep(1)  # remove after debugging
+                await asyncio.sleep(0.01)
             elif self.playback_mode == "REALTIME":
                 # check to see if the diff between now and the "start time" is
                 # less than the diff between the playback_position and first
@@ -108,19 +129,22 @@ class Playback:
                     )
                     * self.playback_rate
                 ) < (self.hist[self.playback_position].time - self.hist[0].time):
-                    asyncio.sleep(1)
+                    await asyncio.sleep(1)
 
             elif self.playback_mode == "EVENINTERVAL":
                 # yield for pre-determined amount of time
-                asyncio.sleep(self.playback_interval)
+                # future: change this to be a loop that checks to see if
+                #       the apprpriate amount of un-pasued time has passed
+                await asyncio.sleep(self.playback_interval)
 
             self.current_time = self.hist[self.playback_position].time
             self.playback_position += 1
+            await asyncio.sleep(0.001)
             return self.hist[self.playback_position - 1]
         except IndexError as e:
-            raise StopIteration(e)
+            raise StopAsyncIteration(e)
 
-    def load_hist(self, histfile, histfile_typehint=None):
+    def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
 
         Parameters
@@ -145,6 +169,8 @@ class Playback:
             return PicklePBLoader.load(histfile, *hints)
         if histfile_typehint == "msf_prompt":
             return OffPromptPBLoader.load(histfile, *hints)
+        else:
+            return []
 
     @property
     def hist(self):
@@ -176,11 +202,11 @@ class Playback:
 
     @playback_interval.setter
     def playback_interval(self, val):
-        if isinstance(val, int) and val > 0:
+        if isinstance(val, (int, float)) and val > 0:
             self._playback_interval = val
 
         else:
-            raise TypeError("Must be of type int and greater than 0")
+            raise TypeError("Must be of type float and greater than 0")
 
     @property
     def playback_rate(self):
@@ -204,20 +230,20 @@ class Playback:
     def pause(self):
         """pause active playback
         """
-        if self.paused():
+        if self.paused:
             return  # don't reset any values or do anything if already paused
 
         self._elapsed_time_at_pause += datetime.datetime.now() - self._start_time
-        print(f"elapsed_time = {self._elapsed_time_at_pause}")
+        # print(f"elapsed_time = {self._elapsed_time_at_pause}")  # debugging
         self.paused = True
 
     def play(self):
         """start playback from last pause position
         """
-        if not self.paused():
+        if not self.paused:
             return  # don't reset any values or do anything if already playing
         self._start_time = datetime.datetime.now()
-        print(f"start_time = {self._start_time}")
+        # print(f"start_time = {self._start_time}")  # debugging
         self.paused = False
 
     def speedup(self):
@@ -231,10 +257,10 @@ class Playback:
         orginally_paused = self.paused
         if not self.paused:
             self.pause()
-        if self.playback_mode == "EVENTINTERVAL":
-            self.playback_interval *= 0.5
-        elif self.playback_mode == "REALTIME":
-            self.playback_rate *= 2
+
+        self.playback_interval *= 0.5
+        self.playback_rate *= 2
+
         if not orginally_paused:
             self.play()
 
@@ -249,10 +275,10 @@ class Playback:
         orginally_paused = self.paused
         if not self.paused:
             self.pause()
-        if self.playback_mode == "EVENINTERVAL":
-            self.playback_interval *= 2
-        elif self.playback_mode == "REALTIME":
-            self.playback_rate *= 0.5
+
+        self.playback_interval *= 2
+        self.playback_rate *= 0.5
+
         if not orginally_paused:
             self.play()
 
@@ -270,6 +296,12 @@ class Playback:
                 self.play()
         else:
             raise TypeError("date_time must be datetime.datetime object")
+
+    def change_playback_mode(self):
+        """Rotates to the next playback_mode available
+        """
+        current_index = self.modes.index(self.playback_mode)
+        self.playback_mode = self.modes[(current_index + 1) % len(self.modes)]
 
 
 def merge_history(playbacks):
