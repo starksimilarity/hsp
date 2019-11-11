@@ -60,7 +60,12 @@ class Playback:
         cycle through the available playback modes
     """
 
-    modes = ["MANUAL", "REALTIME", "EVENINTERVAL"]
+    MANUAL = "MANUAL"
+    REALTIME = "REALTIME"
+    EVENINTERVAL = "EVENINTERVAL"
+    _SPEEDCONST = 20
+
+    modes = [MANUAL, REALTIME, EVENINTERVAL]
 
     def __init__(
         self,
@@ -71,9 +76,8 @@ class Playback:
         date_hint=None,
         playback_mode=None,
     ):
-        self.current_time = 0
+        self.current_time = 1
         self.playback_position = 0
-        self.playback_interval = 10
         self.user_hint = user_hint
         self.host_hint = host_hint
         self.date_hint = date_hint
@@ -136,10 +140,10 @@ class Playback:
                     # yield for pre-determined amount of time
                     # future: change this to be a loop that checks to see if
                     #       the apprpriate amount of un-pasued time has passed
-                    if self._time_since_last_event > datetime.timedelta(seconds=self.playback_interval):
+                    if self._time_since_last_event > datetime.timedelta(seconds=self._SPEEDCONST):
                         break
 
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.001)
 
             # condition has been met to return an event
             self.playback_position += 1
@@ -163,7 +167,7 @@ class Playback:
                     (datetime.datetime.now() - self._suspend_time) * self.playback_rate
 
             self._suspend_time = datetime.datetime.now()
-            await asyncio.sleep(.01)
+            await asyncio.sleep(.001)
 
 
     def _load_hist(self, histfile, histfile_typehint=None):
@@ -187,6 +191,19 @@ class Playback:
             "date_hint": self.date_hint,
         }
         return PBLoader.load_all(SESSION_FOLDER, histfile, histfile_typehint, hints)
+
+    @property
+    def current_time(self):
+        return self._current_time
+
+    @current_time.setter
+    def current_time(self, val):
+        if isinstance(val, datetime.datetime):
+            self._current_time = val
+        elif isinstance(val, int) and val > 0:
+            self._current_time = datetime.datetime.fromordinal(val)
+        else:
+            raise TypeError("current_time must be datetime object or int")
 
     @property
     def hist(self):
@@ -214,15 +231,7 @@ class Playback:
 
     @property
     def playback_interval(self):
-        return self._playback_interval
-
-    @playback_interval.setter
-    def playback_interval(self, val):
-        if isinstance(val, (int, float)) and val > 0:
-            self._playback_interval = val
-
-        else:
-            raise TypeError("Must be of type float and greater than 1")
+        return self._SPEEDCONST / self.playback_rate
 
     @property
     def playback_rate(self):
@@ -274,7 +283,6 @@ class Playback:
         if not self.paused:
             self.pause()
 
-        self.playback_interval *= 0.5
         self.playback_rate *= 2
 
         if not orginally_paused:
@@ -292,7 +300,6 @@ class Playback:
         if not self.paused:
             self.pause()
 
-        self.playback_interval *= 2
         self.playback_rate *= 0.5
 
         if not orginally_paused:
