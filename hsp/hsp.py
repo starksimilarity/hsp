@@ -80,7 +80,7 @@ def main():
         # future: add comment
         pass
 
-    @bindings.add("s-f")
+    @bindings.add("f")
     def _(event):
         # future: flag command
         pass
