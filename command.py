@@ -133,4 +133,3 @@ class Command:
     @comment.setter
     def comment(self, val):
         self._comment = val
-

@@ -131,17 +131,22 @@ def main():
         """
         try:
             if command.flagged:
-                color = 'ansired'
+                color = "ansired"
             else:
-                color = 'ansiwhite'
+                color = "ansiwhite"
         except:
-            color = 'ansiwhite'
+            color = "ansiwhite"
         try:
-            return [('bg:ansiblue ansiwhite', f"{command.time.ctime()}\n"),
-                    (color, (
-                f"{command.hostUUID}:{command.user} > {command.command}\n"
-                f"{command.result}"
-            ))]
+            return [
+                ("bg:ansiblue ansiwhite", f"{command.time.ctime()}\n"),
+                (
+                    color,
+                    (
+                        f"{command.hostUUID}:{command.user} > {command.command}\n"
+                        f"{command.result}"
+                    ),
+                ),
+            ]
         except:
             # if this happens, we probaly didn't get an actual Command object
             # but we can have it rendered in the window anyway
