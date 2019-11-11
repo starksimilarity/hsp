@@ -6,11 +6,12 @@ Author: starksimilarity@gmail.com
 import asyncio
 import datetime
 
+SESSION_FOLDER = "sessions"
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 
 from command import Command
-from loader import PBLoader, OffPromptPBLoader, PicklePBLoader
+from loader import PBLoader
 
 
 class Playback:
@@ -164,13 +165,7 @@ class Playback:
             "host_hint": self.host_hint,
             "date_hint": self.date_hint,
         }
-
-        if histfile_typehint == "pickle":
-            return PicklePBLoader.load(histfile, *hints)
-        if histfile_typehint == "msf_prompt":
-            return OffPromptPBLoader.load(histfile, *hints)
-        else:
-            return []
+        return PBLoader.load_all(SESSION_FOLDER, histfile, histfile_typehint, hints)
 
     @property
     def hist(self):
