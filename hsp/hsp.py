@@ -18,6 +18,7 @@ from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout import Layout, Dimension
 from prompt_toolkit.widgets import Box, Frame, TextArea
+from prompt_toolkit.filters import Condition
 
 from prompt_toolkit.eventloop import use_asyncio_event_loop
 
@@ -40,29 +41,39 @@ def main():
 
     playback = merge_history(playback_list)
 
+    # must define this up front because follow-on definitions depend on it
+    # this gets updated with layouts and keybindings
+    a = Application(full_screen=True)
+    a.displayingHelpScreen = False # used to toggle between help screen on normal
+    a.savedLayout = Layout(Window())
+
     bindings = KeyBindings()
 
-    @bindings.add("n")
-    @bindings.add("down")
-    @bindings.add("right")
+    @Condition
+    def mainView():
+        return not a.displayingHelpScreen
+
+    @bindings.add("n", filter=mainView)
+    @bindings.add("down", filter=mainView)
+    @bindings.add("right", filter=mainView)
     def _(event):
         try:
             playback.loop_lock.release()
         except Exception as e:
             pass
 
-    @bindings.add("p")
+    @bindings.add("p", filter=mainView)
     def _(event):
         if playback.paused:
             playback.play()
         else:
             playback.pause()
 
-    @bindings.add("f")
+    @bindings.add("f", filter=mainView)
     def _(event):
         playback.speedup()
 
-    @bindings.add("s")
+    @bindings.add("s", filter=mainView)
     def _(event):
         playback.slowdown()
 
@@ -71,19 +82,51 @@ def main():
     def _(event):
         event.app.exit()
 
-    @bindings.add("c-m")
+    @bindings.add("c-m", filter=mainView)
     def _(event):
         playback.change_playback_mode()
 
-    @bindings.add("c")
+    @bindings.add("c", filter=mainView)
     def _(event):
         # future: add comment
         pass
 
-    @bindings.add("f")
+    @bindings.add("f", filter=mainView)
     def _(event):
         # future: flag command
         pass
+
+    @bindings.add("h")
+    def _(event):
+        # display help screen
+        if event.app.displayingHelpScreen:
+            # exit help screen
+            event.app.displayingHelpScreen = False
+            playback.pause()
+            event.app.layout=event.app.savedLayout
+            event.app.invalidate()
+             
+        else:
+            # display help screen
+            event.app.displayingHelpScreen = True
+            event.app.savedLayout=event.app.layout
+            event.app.layout=helpLayout
+            event.app.invalidate()
+
+    helpLayout = Layout(Frame(Window(
+        FormattedTextControl(
+            "HELP SCREEN\n\n"
+            "h -        help screen\n"
+            "s -        slow down\n"
+            "p -        toggle play/pause\n"
+            "c -        add comment to current command\n"
+            "ctrl-m     change playback mode\n"
+            "ctrl-f     flag event\n"
+            "n/dwn/rght next event\n"
+        ))))
+
+
+
 
     def toolbar():
         """Returns bottom toolbar for app
@@ -120,9 +163,9 @@ def main():
         ],
         padding_char="-",
     )
-    a = Application(
-        layout=Layout(root_container), full_screen=True, key_bindings=bindings
-    )
+
+    a.layout=Layout(root_container)
+    a.key_bindings=bindings
 
     playback.playback_mode = "MANUAL"
 
