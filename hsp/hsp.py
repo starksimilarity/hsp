@@ -54,9 +54,9 @@ def main():
 
     # must define this up front because follow-on definitions depend on it
     # this gets updated with layouts and keybindings
-    a = Application(full_screen=True)
-    a.displayingHelpScreen = False # used to toggle between help screen on normal
-    a.savedLayout = Layout(Window())
+    hspApp = Application(full_screen=True)
+    hspApp.displayingHelpScreen = False # used to toggle between help screen on normal
+    hspApp.savedLayout = Layout(Window())
 
     bindings = KeyBindings()
 
@@ -69,7 +69,7 @@ def main():
         _ : bool
             If app is not displaying the Help Screen, it's in main view
         """
-        return not a.displayingHelpScreen
+        return not hspApp.displayingHelpScreen
 
     @bindings.add("n", filter=mainView)
     @bindings.add("down", filter=mainView)
@@ -114,6 +114,11 @@ def main():
         # future: flag command
         pass
 
+    @bindings.add("g", filter=mainView)
+    def _(event):
+        # future: goto time
+        pass
+
     @bindings.add("h")
     def _(event):
         # display help screen
@@ -144,7 +149,7 @@ def main():
         ))))
 
 
-    def toolbar():
+    def toolbar_text():
         """Returns bottom toolbar for app
 
         Returns
@@ -167,21 +172,22 @@ def main():
     body = Frame(
         HSplit([Frame(Window(old_command_window)), Frame(Window(new_command_window))])
     )
+    toolbar = Window( 
+                FormattedTextControl(text=toolbar_text),
+                height=Dimension(max=1, weight=10000),
+                dont_extend_height=True,
+            )
 
     main_view = HSplit(
         [
             body,
-            Window(
-                FormattedTextControl(text=toolbar),
-                height=Dimension(max=1, weight=10000),
-                dont_extend_height=True,
-            ),
+            toolbar
         ],
         padding_char="-",
     )
 
-    a.layout=Layout(main_view)
-    a.key_bindings=bindings
+    hspApp.layout=Layout(main_view)
+    hspApp.key_bindings=bindings
 
 
     def render_command(command):
@@ -223,11 +229,11 @@ def main():
     def display_new_command(command):
         """Moves text from lower window to upper then adds new command text
         """
-        a.layout.focus(old_command_window)
-        a.layout.current_control.text = new_command_window.text
-        a.layout.focus(new_command_window)
-        a.layout.current_control.text = FormattedText(render_command(command))
-        a.invalidate()
+        hspApp.layout.focus(old_command_window)
+        hspApp.layout.current_control.text = new_command_window.text
+        hspApp.layout.focus(new_command_window)
+        hspApp.layout.current_control.text = FormattedText(render_command(command))
+        hspApp.invalidate()
 
 
     ###################################################
@@ -256,10 +262,10 @@ def main():
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
     try:
-        # Run command_loop and a.run_async next to each other
+        # Run command_loop and hspApp.run_async next to each other
         # future: handle when one completes before the other
         loop.run_until_complete(
-            asyncio.gather(command_loop(), a.run_async().to_asyncio_future())
+            asyncio.gather(command_loop(), hspApp.run_async().to_asyncio_future())
         )
     finally:
         loop.close()
