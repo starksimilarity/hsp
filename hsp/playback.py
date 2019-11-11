@@ -83,6 +83,8 @@ class Playback:
         self.playback_rate = 5
         self._start_time = datetime.datetime.now()  # when the replay was unpaused;
         self._elapsed_time_at_pause = datetime.timedelta(0)
+        self._suspend_time = datetime.datetime.now()
+        self._time_since_last_event = datetime.timedelta(0)
 
         if histfile:
             self.hist = self._load_hist(histfile, histfile_typehint)
@@ -102,48 +104,67 @@ class Playback:
             raise StopIteration(e)
 
     async def __aiter__(self):
-        # set start-time for REALTIME mode
+        # initialize internal timers
         self._start_time = datetime.datetime.now()
         self._elapsed_time_at_pause = datetime.timedelta(0)
+        self.current_time = self.hist[self.playback_position].time
         return self
 
     async def __anext__(self):
         try:
-            while self.paused:
-                await asyncio.sleep(1)
-            # These if statements control when the function should
-            if self.playback_mode == "MANUAL":
-                # not implemented
-                async with self.loop_lock:
-                    pass
-                await asyncio.sleep(0.0001)
-            elif self.playback_mode == "REALTIME":
-                # check to see if the diff between now and the "start time" is
-                # less than the diff between the playback_position and first
-                # command time
-                #
-                # BUG: this probably doesn't handle switching between modes
-                while (
-                    (
-                        (datetime.datetime.now() - self._start_time)
-                        + self._elapsed_time_at_pause
-                    )
-                    * self.playback_rate
-                ) < (self.hist[self.playback_position].time - self.hist[0].time):
+            while True:
+                if self.paused:
+                    # longer sleep period while paused
                     await asyncio.sleep(1)
+                    continue
+                # These if statements control when the function should
+                # return an object; break is used to exit the While True
+                # and return an object
+                elif self.playback_mode == "MANUAL":
+                    async with self.loop_lock:
+                        # this blocks so we can't switch to other modes mid loop
+                        # future: find a non-blocking way to do this
+                        break
+                elif self.playback_mode == "REALTIME":
+                    # check to see if current_playback time is greater
+                    # than the time of the next event
+                    if self.current_time > \
+                        self.hist[self.playback_position].time:
+                        break
 
-            elif self.playback_mode == "EVENINTERVAL":
-                # yield for pre-determined amount of time
-                # future: change this to be a loop that checks to see if
-                #       the apprpriate amount of un-pasued time has passed
-                await asyncio.sleep(self.playback_interval)
+                elif self.playback_mode == "EVENINTERVAL":
+                    # yield for pre-determined amount of time
+                    # future: change this to be a loop that checks to see if
+                    #       the apprpriate amount of un-pasued time has passed
+                    if self._time_since_last_event > datetime.timedelta(seconds=self.playback_interval):
+                        break
 
-            self.current_time = self.hist[self.playback_position].time
+                await asyncio.sleep(0.1)
+
+            # condition has been met to return an event
             self.playback_position += 1
-            await asyncio.sleep(0.001)
+            self.current_time = self.hist[self.playback_position-1].time
+            self._time_since_last_event = datetime.timedelta(0)
+            self._suspend_time = datetime.datetime.now()
+
             return self.hist[self.playback_position - 1]
         except IndexError as e:
             raise StopAsyncIteration(e)
+
+
+    async def run_async(self):
+        """Runs internal playback timers for async mode
+        """
+        while True:
+            if not self.paused:
+                self.current_time = self.current_time + \
+                    (datetime.datetime.now() - self._suspend_time) * self.playback_rate
+                self._time_since_last_event = self._time_since_last_event + \
+                    (datetime.datetime.now() - self._suspend_time) * self.playback_rate
+
+            self._suspend_time = datetime.datetime.now()
+            await asyncio.sleep(.01)
+
 
     def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.

@@ -109,9 +109,14 @@ def main():
         # future: add comment
         pass
 
-    @bindings.add("f", filter=mainView)
+    @bindings.add("c-f", filter=mainView)
     def _(event):
         # future: flag command
+        pass
+
+    @bindings.add("c-s", filter=mainView)
+    def _(event):
+        #future: save playback
         pass
 
     @bindings.add("g", filter=mainView)
@@ -259,13 +264,25 @@ def main():
         else:
             display_new_command("\n\n\nDONEDONEDONEDONE\n\n\n")
 
+
+    async def redraw_timer():
+        while True:
+            await asyncio.sleep(1)
+            hspApp.invalidate()
+
+
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
     try:
         # Run command_loop and hspApp.run_async next to each other
         # future: handle when one completes before the other
         loop.run_until_complete(
-            asyncio.gather(command_loop(), hspApp.run_async().to_asyncio_future())
+            asyncio.gather(
+                command_loop(), 
+                hspApp.run_async().to_asyncio_future(), 
+                playback.run_async(),
+                redraw_timer()
+            )
         )
     finally:
         loop.close()
