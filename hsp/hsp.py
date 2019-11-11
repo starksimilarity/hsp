@@ -7,6 +7,8 @@ Author: starksimilarity@gmail.com
 """
 
 import asyncio
+import datetime
+import pickle
 
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
@@ -28,7 +30,7 @@ from utils.utils import parseconfig
 
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
-
+SAVE_LOCATION = "SavedPlayback"
 
 def main():
     """Sets up playback and app then runs both in async loop
@@ -116,8 +118,9 @@ def main():
 
     @bindings.add("c-s", filter=mainView)
     def _(event):
-        #future: save playback
-        pass
+        time = datetime.datetime.now() 
+        with open(SAVE_LOCATION+f"_{time.strftime('%Y%m%d%H%M')}", 'wb+') as outfi:
+            pickle.dump(playback.hist, outfi)
 
     @bindings.add("g", filter=mainView)
     def _(event):
@@ -162,14 +165,24 @@ def main():
         _ : prompt_toolkit.formatted_text.HTML
             Text for the bottom toolbar for the app
         """
-        return HTML(
-            "<table><tr>"
-            f"<th>PLAYBACK TIME: {playback.current_time}</th>     "
-            f"<th>PLAYBACK MODE: {playback.playback_mode}</th>    "
-            f"<th>PAUSED: {playback.paused}</th>      "
-            f"<th>PLAYBACK RATE: {playback.playback_rate}</th>"
-            "</tr></table>"
-        )
+        if playback.playback_mode == playback.EVENINTERVAL:
+            return HTML(
+                "<table><tr>"
+                f"<th>PLAYBACK TIME: {playback.current_time.strftime('%b %d %Y %H:%M:%S')}</th>     "
+                f"<th>PLAYBACK MODE: {playback.playback_mode}</th>    "
+                f"<th>PAUSED: {playback.paused}</th>      "
+                f"<th>PLAYBACK INTERVAL: {playback.playback_interval}s</th>"
+                "</tr></table>"
+            )
+        else:
+            return HTML(
+                "<table><tr>"
+                f"<th>PLAYBACK TIME: {playback.current_time.strftime('%b %d %Y %H:%M:%S')}</th>     "
+                f"<th>PLAYBACK MODE: {playback.playback_mode}</th>    "
+                f"<th>PAUSED: {playback.paused}</th>      "
+                f"<th>PLAYBACK RATE: {playback.playback_rate}</th>"
+                "</tr></table>"
+            )
 
     old_command_window = FormattedTextControl(text="Output goes here", focusable=True)
     new_command_window = FormattedTextControl(text="Output goes here", focusable=True)
@@ -266,8 +279,13 @@ def main():
 
 
     async def redraw_timer():
+        """Async method to force a redraw of the app every second
+
+        Never terminates
+        # future: do some more checking and error handling
+        """
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(.01)
             hspApp.invalidate()
 
 

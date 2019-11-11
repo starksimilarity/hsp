@@ -9,7 +9,8 @@
 # which format the historyfile is in
 # Valid formats include: msf_prompt, pickle
 
-stark_host3_20191025_2:msf_prompt
-histfile:pickle
-bash_hist_example:bash_hist
-csv_hist_example:generic_csv_hist
+#stark_host3_20191025_2:msf_prompt
+#histfile:pickle
+#bash_hist_example:bash_hist
+#csv_hist_example:generic_csv_hist
+SavedPlayback_201911111542:pickle
