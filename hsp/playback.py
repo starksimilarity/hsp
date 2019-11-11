@@ -116,7 +116,7 @@ class Playback:
                 # not implemented
                 async with self.loop_lock:
                     pass
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.0001)
             elif self.playback_mode == "REALTIME":
                 # check to see if the diff between now and the "start time" is
                 # less than the diff between the playback_position and first
@@ -201,7 +201,7 @@ class Playback:
             self._playback_interval = val
 
         else:
-            raise TypeError("Must be of type float and greater than 0")
+            raise TypeError("Must be of type float and greater than 1")
 
     @property
     def playback_rate(self):

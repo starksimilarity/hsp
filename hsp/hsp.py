@@ -33,6 +33,11 @@ HISTFILE_LIST = "histfile_list"
 def main():
     """Sets up playback and app then runs both in async loop
     """
+
+    ###################################################
+    # Setting Up Playback object
+    ###################################################
+
     files = parseconfig("histfile_list")
 
     playback_list = []
@@ -40,6 +45,12 @@ def main():
         playback_list.append(Playback(fi, hint))
 
     playback = merge_history(playback_list)
+
+    playback.playback_mode = "MANUAL"
+
+    ###################################################
+    # Setting Up prompt_toolkit Application view 
+    ###################################################
 
     # must define this up front because follow-on definitions depend on it
     # this gets updated with layouts and keybindings
@@ -51,6 +62,13 @@ def main():
 
     @Condition
     def mainView():
+        """Return if app is in main view.
+
+        Returns
+        =======
+        _ : bool
+            If app is not displaying the Help Screen, it's in main view
+        """
         return not a.displayingHelpScreen
 
     @bindings.add("n", filter=mainView)
@@ -126,8 +144,6 @@ def main():
         ))))
 
 
-
-
     def toolbar():
         """Returns bottom toolbar for app
 
@@ -152,7 +168,7 @@ def main():
         HSplit([Frame(Window(old_command_window)), Frame(Window(new_command_window))])
     )
 
-    root_container = HSplit(
+    main_view = HSplit(
         [
             body,
             Window(
@@ -164,10 +180,9 @@ def main():
         padding_char="-",
     )
 
-    a.layout=Layout(root_container)
+    a.layout=Layout(main_view)
     a.key_bindings=bindings
 
-    playback.playback_mode = "MANUAL"
 
     def render_command(command):
         """Return string of command object specific to this UI
@@ -213,6 +228,11 @@ def main():
         a.layout.focus(new_command_window)
         a.layout.current_control.text = FormattedText(render_command(command))
         a.invalidate()
+
+
+    ###################################################
+    # Setting Up Loop to async iter over history 
+    ###################################################
 
     async def command_loop():
         """Primary loop for receiving/displaying commands from playback
