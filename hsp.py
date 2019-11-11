@@ -75,6 +75,16 @@ def main():
     def _(event):
         playback.change_playback_mode()
 
+    @bindings.add("c")
+    def _(event):
+        # future: add comment
+        pass
+
+    @bindings.add("s-f")
+    def _(event):
+        # future: flag command
+        pass
+
     def toolbar():
         """Returns bottom toolbar for app
 
