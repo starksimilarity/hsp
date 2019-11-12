@@ -70,6 +70,8 @@ class PBLoader(ABC):
             return GenericCsvPBLoader.load(f"{session_folder}/{histfile}", **hints)
         elif histfile_typehint == "generic_json_hist":
             return GenericJsonPBLoader.load(f"{session_folder}/{histfile}", **hints)
+        elif histfile_typehint == "win_event_log_csv":
+            return WinEventLogCsvPBLoader.load(f"{session_folder}/{histfile}", **hints)
         else:
             return []
 
@@ -311,3 +313,52 @@ class GenericJsonPBLoader(PBLoader):
         #NOT IMPLEMENTED
         """
         return []
+
+
+class WinEventLogCsvPBLoader(PBLoader):
+    """
+    """
+
+    @classmethod
+    def load(cls, filename, user_hint=None, host_hint=None, date_hint=None):
+        """Loads Windows event logs from csv format
+
+        #NOT IMPLEMENTED
+        host = MachineName 
+        time = TimeGenerated 
+        user = UserName
+        result = Message
+        """
+        commandhist = []
+
+        with open(filename, "r+") as infi:
+            firstline = infi.readline()
+
+            # some event log exports will use the first line to declare what
+            # type of eventlog it is (begins with #TYPE); if that is the case,
+            # the headers will be on the second row in which case this script will
+            # skip over the first row, otherwise seek back to the top
+            if not firstline.startswith("#TYPE"):
+                infi.seek(0)
+            csvreader = csv.DictReader(infi)
+            for row in csvreader:
+                time = row.get("TimeGenerated", "")
+                host = row.get("MachineName", None)
+                user = row.get("UserName", None)
+                if len(user) < 1:
+                    user = "UNKNOWN USER"
+                result = row.get("Message", None)
+                command = "UNKNOWN COMMAND"
+                try:
+                    time = parsedate(time)
+                except (TypeError, ValueError) as e:
+                    print(f"something went wrong {e}")
+                    time = dt.datetime.fromordinal(1)
+
+                commandhist.append(
+                    Command(
+                        time, hostUUID=host, user=user, result=result, command=command
+                    )
+                )
+
+        return commandhist
