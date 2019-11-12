@@ -73,7 +73,7 @@ class Command:
         elif isinstance(val, int):
             self._time = datetime.datetime.fromordinal(val)
         else:
-            raise TypeError("Time must be of datetime or int type")
+            raise TypeError(f"Time must be of datetime or int type, got {val} instead")
 
     @property
     def user(self):
