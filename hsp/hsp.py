@@ -32,6 +32,7 @@ DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 SAVE_LOCATION = "SavedPlayback"
 
+
 def main():
     """Sets up playback and app then runs both in async loop
     """
@@ -51,13 +52,13 @@ def main():
     playback.playback_mode = "MANUAL"
 
     ###################################################
-    # Setting Up prompt_toolkit Application view 
+    # Setting Up prompt_toolkit Application view
     ###################################################
 
     # must define this up front because follow-on definitions depend on it
     # this gets updated with layouts and keybindings
     hspApp = Application(full_screen=True)
-    hspApp.displayingHelpScreen = False # used to toggle between help screen on normal
+    hspApp.displayingHelpScreen = False  # used to toggle between help screen on normal
     hspApp.savedLayout = Layout(Window())
 
     bindings = KeyBindings()
@@ -118,8 +119,8 @@ def main():
 
     @bindings.add("c-s", filter=mainView)
     def _(event):
-        time = datetime.datetime.now() 
-        with open(SAVE_LOCATION+f"_{time.strftime('%Y%m%d%H%M')}", 'wb+') as outfi:
+        time = datetime.datetime.now()
+        with open(SAVE_LOCATION + f"_{time.strftime('%Y%m%d%H%M')}", "wb+") as outfi:
             pickle.dump(playback.hist, outfi)
 
     @bindings.add("g", filter=mainView)
@@ -134,28 +135,32 @@ def main():
             # exit help screen
             event.app.displayingHelpScreen = False
             playback.pause()
-            event.app.layout=event.app.savedLayout
+            event.app.layout = event.app.savedLayout
             event.app.invalidate()
-             
+
         else:
             # display help screen
             event.app.displayingHelpScreen = True
-            event.app.savedLayout=event.app.layout
-            event.app.layout=helpLayout
+            event.app.savedLayout = event.app.layout
+            event.app.layout = helpLayout
             event.app.invalidate()
 
-    helpLayout = Layout(Frame(Window(
-        FormattedTextControl(
-            "HELP SCREEN\n\n"
-            "h -        help screen\n"
-            "s -        slow down\n"
-            "p -        toggle play/pause\n"
-            "c -        add comment to current command\n"
-            "ctrl-m     change playback mode\n"
-            "ctrl-f     flag event\n"
-            "n/dwn/rght next event\n"
-        ))))
-
+    helpLayout = Layout(
+        Frame(
+            Window(
+                FormattedTextControl(
+                    "HELP SCREEN\n\n"
+                    "h -        help screen\n"
+                    "s -        slow down\n"
+                    "p -        toggle play/pause\n"
+                    "c -        add comment to current command\n"
+                    "ctrl-m     change playback mode\n"
+                    "ctrl-f     flag event\n"
+                    "n/dwn/rght next event\n"
+                )
+            )
+        )
+    )
 
     def toolbar_text():
         """Returns bottom toolbar for app
@@ -190,23 +195,16 @@ def main():
     body = Frame(
         HSplit([Frame(Window(old_command_window)), Frame(Window(new_command_window))])
     )
-    toolbar = Window( 
-                FormattedTextControl(text=toolbar_text),
-                height=Dimension(max=1, weight=10000),
-                dont_extend_height=True,
-            )
-
-    main_view = HSplit(
-        [
-            body,
-            toolbar
-        ],
-        padding_char="-",
+    toolbar = Window(
+        FormattedTextControl(text=toolbar_text),
+        height=Dimension(max=1, weight=10000),
+        dont_extend_height=True,
     )
 
-    hspApp.layout=Layout(main_view)
-    hspApp.key_bindings=bindings
+    main_view = HSplit([body, toolbar], padding_char="-")
 
+    hspApp.layout = Layout(main_view)
+    hspApp.key_bindings = bindings
 
     def render_command(command):
         """Return string of command object specific to this UI
@@ -253,9 +251,8 @@ def main():
         hspApp.layout.current_control.text = FormattedText(render_command(command))
         hspApp.invalidate()
 
-
     ###################################################
-    # Setting Up Loop to async iter over history 
+    # Setting Up Loop to async iter over history
     ###################################################
 
     async def command_loop():
@@ -277,7 +274,6 @@ def main():
         else:
             display_new_command("\n\n\nDONEDONEDONEDONE\n\n\n")
 
-
     async def redraw_timer():
         """Async method to force a redraw of the app every second
 
@@ -285,9 +281,8 @@ def main():
         # future: do some more checking and error handling
         """
         while True:
-            await asyncio.sleep(.01)
+            await asyncio.sleep(0.01)
             hspApp.invalidate()
-
 
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
@@ -296,10 +291,10 @@ def main():
         # future: handle when one completes before the other
         loop.run_until_complete(
             asyncio.gather(
-                command_loop(), 
-                hspApp.run_async().to_asyncio_future(), 
+                command_loop(),
+                hspApp.run_async().to_asyncio_future(),
                 playback.run_async(),
-                redraw_timer()
+                redraw_timer(),
             )
         )
     finally:

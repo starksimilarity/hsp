@@ -132,22 +132,23 @@ class Playback:
                 elif self.playback_mode == "REALTIME":
                     # check to see if current_playback time is greater
                     # than the time of the next event
-                    if self.current_time > \
-                        self.hist[self.playback_position].time:
+                    if self.current_time > self.hist[self.playback_position].time:
                         break
 
                 elif self.playback_mode == "EVENINTERVAL":
                     # yield for pre-determined amount of time
                     # future: change this to be a loop that checks to see if
                     #       the apprpriate amount of un-pasued time has passed
-                    if self._time_since_last_event > datetime.timedelta(seconds=self._SPEEDCONST):
+                    if self._time_since_last_event > datetime.timedelta(
+                        seconds=self._SPEEDCONST
+                    ):
                         break
 
                 await asyncio.sleep(0.001)
 
             # condition has been met to return an event
             self.playback_position += 1
-            self.current_time = self.hist[self.playback_position-1].time
+            self.current_time = self.hist[self.playback_position - 1].time
             self._time_since_last_event = datetime.timedelta(0)
             self._suspend_time = datetime.datetime.now()
 
@@ -155,20 +156,24 @@ class Playback:
         except IndexError as e:
             raise StopAsyncIteration(e)
 
-
     async def run_async(self):
         """Runs internal playback timers for async mode
         """
         while True:
             if not self.paused:
-                self.current_time = self.current_time + \
-                    (datetime.datetime.now() - self._suspend_time) * self.playback_rate
-                self._time_since_last_event = self._time_since_last_event + \
-                    (datetime.datetime.now() - self._suspend_time) * self.playback_rate
+                self.current_time = (
+                    self.current_time
+                    + (datetime.datetime.now() - self._suspend_time)
+                    * self.playback_rate
+                )
+                self._time_since_last_event = (
+                    self._time_since_last_event
+                    + (datetime.datetime.now() - self._suspend_time)
+                    * self.playback_rate
+                )
 
             self._suspend_time = datetime.datetime.now()
-            await asyncio.sleep(.001)
-
+            await asyncio.sleep(0.001)
 
     def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.

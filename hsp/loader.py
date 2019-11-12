@@ -19,6 +19,7 @@ import re
 
 from command import Command
 
+
 class PBLoader(ABC):
     """Class that defines one abstract classmethod for loading a history
 
@@ -223,12 +224,12 @@ class GenericCsvPBLoader(PBLoader):
 
         with open(filename, "r+") as infi:
             header = False
-            poss_headers = infi.readline() 
+            poss_headers = infi.readline()
 
             # since time is a mandatory field, check the first row
-            # to see if the word time is one of the values; 
-            # if yes, treat the row as header 
-            for val in poss_headers.split(','):
+            # to see if the word time is one of the values;
+            # if yes, treat the row as header
+            for val in poss_headers.split(","):
                 if val.lower().strip() == "time":
                     header = True
 
@@ -238,32 +239,34 @@ class GenericCsvPBLoader(PBLoader):
                 print("header found")
                 csvreader = csv.DictReader(infi)
                 for row in csvreader:
-                    row = dict((k.lower().strip(), v) for k,v in row.items() if k is not None)
+                    row = dict(
+                        (k.lower().strip(), v) for k, v in row.items() if k is not None
+                    )
                     try:
-                        time=parsedate(row.get('time'))
+                        time = parsedate(row.get("time"))
                     except (TypeError, ValueError) as e:
-                        try: 
+                        try:
                             time = dt.datetime.fromordinal(int(time))
                         except:
                             raise
 
-                    f = row.get('flagged', '').strip().lower()
-                    if f == 'true':
-                        flagged=True
+                    f = row.get("flagged", "").strip().lower()
+                    if f == "true":
+                        flagged = True
                     else:
-                        flagged=False
+                        flagged = False
 
                     commandhist.append(
-                            Command(
-                                time,
-                                hostUUID=row.get('host', None),
-                                user=row.get('user', None),
-                                command=row.get('command', None),
-                                result=row.get('result', None),
-                                flagged=flagged,
-                                comment=row.get('comment', '')
-                            )
+                        Command(
+                            time,
+                            hostUUID=row.get("host", None),
+                            user=row.get("user", None),
+                            command=row.get("command", None),
+                            result=row.get("result", None),
+                            flagged=flagged,
+                            comment=row.get("comment", ""),
                         )
+                    )
 
             if not header:
                 csvreader = csv.reader()
@@ -271,10 +274,10 @@ class GenericCsvPBLoader(PBLoader):
                     try:
                         time, host, user, command, result, flagged, comment, *_ = row
                         try:
-                            time=parsedate(time)
+                            time = parsedate(time)
 
                         except (TypeError, ValueError) as e:
-                            try: 
+                            try:
                                 time = dt.datetime.fromordinal(int(time))
                             except:
                                 raise
