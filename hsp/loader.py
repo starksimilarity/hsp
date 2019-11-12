@@ -1,12 +1,23 @@
+"""module that defines history loaders
+
+The root class is PBLoader, an AbstractBaseClass.  To implement a new loader,
+inherit from PBLoader and implement the 'load' classmethod; then update the load_all
+method to point a keyword to the class.
+
+In the future, users will be able to create a new PBLoader and allow the sub-class
+to register for histfile_typehint keywords directly without having to mod the 
+master class.
+"""
+
 from abc import ABC, abstractmethod
 import csv
 import datetime as dt
+from dateutil.parser import parse as parsedate
 import json
 import pickle
 import re
 
 from command import Command
-
 
 class PBLoader(ABC):
     """Class that defines one abstract classmethod for loading a history
@@ -58,7 +69,6 @@ class PBLoader(ABC):
             return GenericCsvPBLoader.load(f"{session_folder}/{histfile}", **hints)
         elif histfile_typehint == "generic_json_hist":
             return GenericJsonPBLoader.load(f"{session_folder}/{histfile}", **hints)
-
         else:
             return []
 
@@ -169,7 +179,7 @@ class BashHistoryPBLoader(PBLoader):
         """Loads bash terminal history files
         
         Bash histories are pretty sparse so passing hints is going to be valuable if able.
-        Bash histories take the form of "num command"--one on each line
+        Bash histories take the form of "num  command"--one on each line
         """
         commandhist = []
         base_date = date_hint or dt.datetime.fromordinal(1)
@@ -194,7 +204,9 @@ class BashHistoryPBLoader(PBLoader):
 class GenericCsvPBLoader(PBLoader):
     """Class for loading CSVs with the required columns
 
-    Format of loaded CSVs must be Time, Host, User, Command, Result, Flagged, Comment
+    Format of loaded CSVs must be 'time, host, user, command, result, flagged, comment'
+    unless the first row is a list of headers in which case there can be any number of
+    columns in any order.
 
     If there are errors loading, check to make sure the file is in unix dialect (not excel)
 
@@ -210,43 +222,76 @@ class GenericCsvPBLoader(PBLoader):
         commandhist = []
 
         with open(filename, "r+") as infi:
-            csvreader = csv.reader(infi, dialect="unix")
-
             header = False
-            poss_headers = iter(csvreader).__next__()
-            for val in poss_headers:
-                if "time" == val.lower():
+            poss_headers = infi.readline() 
+
+            # since time is a mandatory field, check the first row
+            # to see if the word time is one of the values; 
+            # if yes, treat the row as header 
+            for val in poss_headers.split(','):
+                if val.lower().strip() == "time":
                     header = True
 
-            if not header:
-                ph = poss_headers
-                commandhist.append(
-                    Command(
-                        ph[0],
-                        hostUUID=ph[1],
-                        user=ph[2],
-                        command=ph[3],
-                        result=ph[4],
-                        flagged=ph[5],
-                        comment=ph[6],
-                    )
-                )
-            for row in csvreader:
-                try:
-                    time, host, user, command, result, flagged, comment, *_ = row
+            infi.seek(0)
+
+            if header:
+                print("header found")
+                csvreader = csv.DictReader(infi)
+                for row in csvreader:
+                    row = dict((k.lower().strip(), v) for k,v in row.items() if k is not None)
+                    try:
+                        time=parsedate(row.get('time'))
+                    except (TypeError, ValueError) as e:
+                        try: 
+                            time = dt.datetime.fromordinal(int(time))
+                        except:
+                            raise
+
+                    f = row.get('flagged', '').strip().lower()
+                    if f == 'true':
+                        flagged=True
+                    else:
+                        flagged=False
+
                     commandhist.append(
-                        Command(
-                            time=dt.datetime.fromordinal(int(time)),
-                            hostUUID=host,
-                            user=user,
-                            command=command,
-                            result=result,
-                            flagged=bool(flagged),
-                            comment=comment,
+                            Command(
+                                time,
+                                hostUUID=row.get('host', None),
+                                user=row.get('user', None),
+                                command=row.get('command', None),
+                                result=row.get('result', None),
+                                flagged=flagged,
+                                comment=row.get('comment', '')
+                            )
                         )
-                    )
-                except Exception as e:
-                    print(e)
+
+            if not header:
+                csvreader = csv.reader()
+                for row in csvreader:
+                    try:
+                        time, host, user, command, result, flagged, comment, *_ = row
+                        try:
+                            time=parsedate(time)
+
+                        except (TypeError, ValueError) as e:
+                            try: 
+                                time = dt.datetime.fromordinal(int(time))
+                            except:
+                                raise
+
+                        commandhist.append(
+                            Command(
+                                time=time,
+                                hostUUID=host,
+                                user=user,
+                                command=command,
+                                result=result,
+                                flagged=bool(flagged),
+                                comment=comment,
+                            )
+                        )
+                    except Exception as e:
+                        print(e)
         return commandhist
 
 
@@ -262,4 +307,4 @@ class GenericJsonPBLoader(PBLoader):
 
         #NOT IMPLEMENTED
         """
-        pass
+        return []
