@@ -58,6 +58,8 @@ class Playback:
         jump to date_time in the playback
     change_playback_mode(self):
         cycle through the available playback modes
+    flag_current_command(self):
+        toggle the flagged setting for the current Command object
     """
 
     MANUAL = "MANUAL"
@@ -330,6 +332,18 @@ class Playback:
         """
         current_index = self.modes.index(self.playback_mode)
         self.playback_mode = self.modes[(current_index + 1) % len(self.modes)]
+
+    def flag_current_command(self):
+        """toggle the flagged setting for the current Command object
+        """
+        if 0 == self.playback_position:
+            self.hist[self.playback_position].flagged = not self.hist[
+                self.playback_position
+            ].flagged
+        else:
+            self.hist[self.playback_position - 1].flagged = not self.hist[
+                self.playback_position - 1
+            ].flagged
 
 
 def merge_history(playbacks):
