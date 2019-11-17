@@ -7,6 +7,7 @@ Author: starksimilarity@gmail.com
 """
 
 import asyncio
+from collections import deque
 import datetime
 import pickle
 
@@ -60,7 +61,7 @@ def main():
     hspApp = Application(full_screen=True)
     hspApp.displayingHelpScreen = False  # used to toggle between help screen on normal
     hspApp.savedLayout = Layout(Window())
-
+    hspApp.command_cache = deque([], maxlen=5)
     bindings = KeyBindings()
 
     @Condition
@@ -114,8 +115,12 @@ def main():
 
     @bindings.add("c-f", filter=mainView)
     def _(event):
-        # future: flag command
-        pass
+        # set the flag in both the playback and the local cache for display
+        playback.flag_current_command()
+
+        # hspApp.command_cache[-1].flagged = not hspApp.command_cache[-1].flagged
+        hspApp.command_cache[-1].flagged = True
+        update_display()
 
     @bindings.add("c-s", filter=mainView)
     def _(event):
@@ -242,13 +247,25 @@ def main():
             # but we can have it rendered in the window anyway
             return [(color, str(command))]
 
-    def display_new_command(command):
-        """Moves text from lower window to upper then adds new command text
+    def update_display():
+        """displays last N commands in the local cache
         """
+
         hspApp.layout.focus(old_command_window)
-        hspApp.layout.current_control.text = new_command_window.text
+        if len(hspApp.command_cache) > 1:
+            hspApp.layout.current_control.text = render_command(
+                hspApp.command_cache[-2]
+            )
+        else:
+            hspApp.layout.current_control.text = "COMMAND OUTPUT HERE"
+        # hspApp.layout.current_control.text = new_command_window.text
         hspApp.layout.focus(new_command_window)
-        hspApp.layout.current_control.text = FormattedText(render_command(command))
+        if len(hspApp.command_cache) > 0:
+            hspApp.layout.current_control.text = render_command(
+                hspApp.command_cache[-1]
+            )
+        else:
+            hspApp.layout.current_control.text = "COMMAND OUTPUT HERE"
         hspApp.invalidate()
 
     ###################################################
@@ -269,10 +286,12 @@ def main():
                 # regain the lock for MANUAL mode
                 await playback.loop_lock.acquire()
 
+            hspApp.command_cache.append(command)
             # Update text in windows
-            display_new_command(command)
+            update_display()
         else:
-            display_new_command("\n\n\nDONEDONEDONEDONE\n\n\n")
+            # future: fix
+            update_display()
 
     async def redraw_timer():
         """Async method to force a redraw of the app every second
