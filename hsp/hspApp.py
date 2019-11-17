@@ -37,20 +37,20 @@ class HspApp(Application):
 
         bindings = KeyBindings()
         self.init_bindings(bindings)
-        self.playback = playback
-        if save_location:
-            self.save_location = save_location
-        else:
-            self.save_location = SAVE_LOCATION
 
         super().__init__(full_screen=True, key_bindings=bindings, *args, **kwargs)
 
         self.displayingHelpScreen = (
             False
         )  # used to toggle between help screen on normal
+
+        if save_location:
+            self.save_location = save_location
+        else:
+            self.save_location = SAVE_LOCATION
+        self.playback = playback
         self.savedLayout = Layout(Window())
         self.command_cache = deque([], maxlen=5)
-        # self.key_bindings = bindings
 
         ##########################################
         ### Setting up views
@@ -134,11 +134,6 @@ class HspApp(Application):
         def _(event):
             # set the flag in both the self.playback and the local cache for display
             self.playback.flag_current_command()
-            flag = self.command_cache[-1].flagged
-            print(flag)
-            print(f"{not flag}")
-            self.command_cache[-1].flagged = not flag
-            # self.command_cache[-1].flagged = True
             self.update_display()
 
         @bindings.add("c-s", filter=dummyFilter)
