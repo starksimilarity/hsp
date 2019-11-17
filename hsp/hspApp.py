@@ -9,6 +9,7 @@ Author: starksimilarity@gmail.com
 import asyncio
 from collections import deque
 import datetime
+from functools import partial
 import pickle
 
 from prompt_toolkit import PromptSession, HTML
@@ -17,6 +18,7 @@ from prompt_toolkit.formatted_text import HTML, FormattedText
 from prompt_toolkit.key_binding import KeyBindings
 
 from prompt_toolkit.application import Application
+from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout import Layout, Dimension
@@ -34,6 +36,9 @@ SAVE_LOCATION = "SavedPlayback"
 
 class HspApp(Application):
     def __init__(self, playback, save_location=None, *args, **kwargs):
+
+        self.mainViewCondition = partial(self.mainView, self)
+        self.mainViewCondition = Condition(self.mainViewCondition)
 
         bindings = KeyBindings()
         self.init_bindings(bindings)
@@ -80,6 +85,7 @@ class HspApp(Application):
         self.main_view = HSplit([self.body, self.toolbar], padding_char="-")
         self.layout = Layout(self.main_view)
 
+    @staticmethod
     def mainView(self):
         """Return if app is in main view.
 
@@ -88,31 +94,30 @@ class HspApp(Application):
         _ : bool
             If app is not displaying the Help Screen, it's in main view
         """
-        # return not self.displayingHelpScreen
-        return True
+        return not self.displayingHelpScreen
 
     def init_bindings(self, bindings):
-        @bindings.add("n", filter=dummyFilter)
-        @bindings.add("down", filter=dummyFilter)
-        @bindings.add("right", filter=dummyFilter)
+        @bindings.add("n", filter=self.mainViewCondition)
+        @bindings.add("down", filter=self.mainViewCondition)
+        @bindings.add("right", filter=self.mainViewCondition)
         def _(event):
             try:
                 self.playback.loop_lock.release()
             except Exception as e:
                 pass
 
-        @bindings.add("p", filter=dummyFilter)
+        @bindings.add("p", filter=self.mainViewCondition)
         def _(event):
             if self.playback.paused:
                 self.playback.play()
             else:
                 self.playback.pause()
 
-        @bindings.add("f", filter=dummyFilter)
+        @bindings.add("f", filter=self.mainViewCondition)
         def _(event):
             self.playback.speedup()
 
-        @bindings.add("s", filter=dummyFilter)
+        @bindings.add("s", filter=self.mainViewCondition)
         def _(event):
             self.playback.slowdown()
 
@@ -121,22 +126,23 @@ class HspApp(Application):
         def _(event):
             event.app.exit()
 
-        @bindings.add("c-m", filter=dummyFilter)
+        @bindings.add("c-m", filter=self.mainViewCondition)
         def _(event):
             self.playback.change_playback_mode()
 
-        @bindings.add("c", filter=dummyFilter)
+        @bindings.add("c", filter=self.mainViewCondition)
         def _(event):
             # future: add comment
-            pass
+            self.get_user_comment()
+            self.update_display()
 
-        @bindings.add("c-f", filter=dummyFilter)
+        @bindings.add("c-f", filter=self.mainViewCondition)
         def _(event):
             # set the flag in both the self.playback and the local cache for display
             self.playback.flag_current_command()
             self.update_display()
 
-        @bindings.add("c-s", filter=dummyFilter)
+        @bindings.add("c-s", filter=self.mainViewCondition)
         def _(event):
             time = datetime.datetime.now()
             with open(
@@ -144,7 +150,7 @@ class HspApp(Application):
             ) as outfi:
                 pickle.dump(self.playback.hist, outfi)
 
-        @bindings.add("g", filter=dummyFilter)
+        @bindings.add("g", filter=self.mainViewCondition)
         def _(event):
             # future: goto time
             pass
@@ -238,6 +244,7 @@ class HspApp(Application):
                     (
                         f"{command.hostUUID}:{command.user} > {command.command}\n"
                         f"{command.result}"
+                        f"{command.comment}"
                     ),
                 ),
             ]
@@ -246,8 +253,28 @@ class HspApp(Application):
             # but we can have it rendered in the window anyway
             return [(color, str(command))]
 
+    def get_user_comment(self):
+        self.savedLayout = self.layout
+        user_in_area = Window(
+            BufferControl(Buffer(accept_handler=self._set_user_comment)),
+            height=Dimension(max=1, weight=10000),
+            dont_extend_height=True,
+        )
+        self.layout = Layout(user_in_area)
+        # self.layout.current_window = user_in_area
+        self.invalidate()
+
+    def _set_user_comment(self, buff):
+        self.playback.hist[self.playback.playback_position - 1].comment = buff.text
+        # self.command_cache[-1].comment = buff.text
+        self.layout = self.savedLayout
+        self.invalidate()
+
     def update_display(self):
         """displays last N commands in the local cache
+
+        This should only be called when the main display with command history is showing
+        otherwise the requisite windows will not be focusable.
         """
 
         self.layout.focus(self.old_command_window)
