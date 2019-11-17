@@ -52,7 +52,9 @@ class Command:
     def __str__(self):
         return (
             f"==========================\n{self.time}\n"
-            f"{self.hostUUID}:{self.user} >>> {self.command}\n{self.result}"
+            f"{self.hostUUID}:{self.user} >>> {self.command}\n{self.result}\n\n"
+            f"{self.flagged}\n"
+            f"{self.comment}\n"
         )
 
     def to_dict(self):
