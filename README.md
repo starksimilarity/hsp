@@ -26,9 +26,15 @@ sudo python3 setup.py install
 ```
 
 ## Usage
-Stand-alone
+Stand-Alone
 ```bash
 > python3 hsp.py
+```
+
+With Docker
+```bash
+sudo docker build -t hsp .
+sudo docker run -it hsp
 ```
 
 ## Module Interactions
