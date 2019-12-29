@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 from os import path
 
+
 def read(fname):
     return open(path.join(path.dirname(__file__), fname)).read()
 

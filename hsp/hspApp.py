@@ -349,6 +349,7 @@ class HspApp(Application):
                 in the area
         """
         self._savedLayout = self.layout
+        self.disabled_bindings=True
         commentControl = BufferControl(
             Buffer(accept_handler=self._set_user_comment), focus_on_click=True
         )
@@ -374,6 +375,7 @@ class HspApp(Application):
         Then replaces the original layout.
         """
         self.playback.hist[self.playback.playback_position - 1].comment = buff.text
+        self.disabled_bindings=False
         self.layout = self._savedLayout
         self.update_display()
         self.invalidate()
