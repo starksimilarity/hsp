@@ -12,7 +12,7 @@ hsp is a Python library that allows a user to replay command line sessions for d
 
 ## Installation
 
-WARNING: ipython does not play nicely with prompt_toolkit 2.0.  It's recommended to run this in a pyenv or separate vm if you care about ipython
+WARNING: ipython does not play nicely with prompt_toolkit 2.0.  It's recommended to run this in a pyenv, docker, or separate vm if you care about ipython
 
 Tested from a clean install of Ubuntu 18.04:
 ```bash
@@ -26,9 +26,15 @@ sudo python3 setup.py install
 ```
 
 ## Usage
-Stand-alone
+Stand-Alone
 ```bash
 > python3 hsp.py
+```
+
+With Docker
+```bash
+sudo docker build -t hsp .
+sudo docker run -it hsp
 ```
 
 ## Module Interactions
