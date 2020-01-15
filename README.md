@@ -1,6 +1,10 @@
 # hsp
 hsp is a Python library that allows a user to replay command line sessions for debriefing, instruction, or review.  The main components of hsp are the Loaders (loader.py), the Playback object (playback.py), and the UI (currently hsp.py).
 
+This is the microservice branch of hsp.  In the original code, the various components of hsp were functionally decoupled but still ran in one master process.  This code will break out those components into microservices that communicate over an API.
+
+This code is not functional at this time.
+
 ## Primary Features Include:
 - Replay command line sessions displaying time, host, user, command, result, analyst comments
 - Multiple playback modes: Manual, Realtime, EvenInterval

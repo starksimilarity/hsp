@@ -4,13 +4,15 @@ Takes a playback object and creates the app that can be run synchronously or asy
 
 Author: starksimilarity@gmail.com
 """
-
+import aio_pika
 import asyncio
 from collections import deque
 from contextlib import contextmanager
 import datetime
 from functools import partial
+import json
 import pickle
+import pika
 
 from prompt_toolkit import PromptSession, HTML
 from prompt_toolkit.application import Application
@@ -70,7 +72,7 @@ class HspApp(Application):
 
     Async Methods
     =============
-    command_loop(self)
+    msg_consumer(self, loop)
         Primary loop for receiving/displaying commands from playback
     redraw_timer(self)
         Async method to force a redraw of the app every hundreth second
@@ -128,6 +130,17 @@ class HspApp(Application):
         self.main_view = HSplit([self.body, self.toolbar], padding_char="-")
         self.layout = Layout(self.main_view)
 
+        ##########################################
+        ### Setting up command_queue
+        ##########################################
+        self.conn = pika.BlockingConnection(pika.ConnectionParameters("172.17.0.2"))
+        self.cmd_queue = self.conn.channel()
+        self.cmd_queue.queue_declare("commands")
+
+    async def event_received(self, msg):
+        new_command = json.loads(msg.body)
+        self.command_cache.append(new_command)
+
     @staticmethod
     def mainView(self):
         """Return if app is in main view.
@@ -181,6 +194,10 @@ class HspApp(Application):
 
     def init_bindings(self, bindings):
         """Adds custom key_bindings to the app
+
+        #TODO: Look into how publishing to the cmd_queue could be 
+                done async. If there's too much latency caused by this
+                blocking write to the cmd_queue, it should be removed.
         """
 
         @bindings.add("n", filter=self.mainViewCondition)
@@ -189,6 +206,10 @@ class HspApp(Application):
         def _(event):
             try:
                 self.playback.loop_lock.release()
+                self.cmd_queue.basic_publish(
+                    exchange="", routing_key="commands", body="release"
+                )
+
             except Exception as e:
                 pass
 
@@ -308,8 +329,8 @@ class HspApp(Application):
 
         Parameters
         ==========
-        command : command.Command
-            Command object to get string for
+        command : dict
+            Dict containing components of a command
 
         Returns
         =======
@@ -317,7 +338,7 @@ class HspApp(Application):
             String representation of Command object
         """
         try:
-            if command.flagged:
+            if command.get("flagged", "False") == "True":
                 color = "ansired"
             else:
                 color = "ansiwhite"
@@ -325,19 +346,21 @@ class HspApp(Application):
             color = "ansiwhite"
         try:
             return [
-                ("bg:ansiblue ansiwhite", f"{command.time.ctime()}\n"),
+                ("bg:ansiblue ansiwhite", f"{command.get('time', '')}\n"),
                 (
                     color,
                     (
-                        f"{command.hostUUID}:{command.user} > {command.command}\n"
-                        f"{command.result}"
-                        f"{command.comment}"
+                        f"{command.get('hostUUID', 'Unknown Host')}:"
+                        f"{command.get('user', 'Unknown User')} > "
+                        f"{command.get('command', 'Unknown Command')}\n"
+                        f"{command.get('result', 'Unknown Result')}\n"
+                        f"{command.get('comment','')}"
                     ),
                 ),
             ]
-        except:
-            # if this happens, we probaly didn't get an actual Command object
-            # but we can have it rendered in the window anyway
+        except Exception as e:
+            # All of the command.get code about should fail gracefully...
+            # but just in case, we can have it rendered in the window anyway
             return [(color, str(command))]
 
     def get_user_comment(self):
@@ -349,7 +372,7 @@ class HspApp(Application):
                 in the area
         """
         self._savedLayout = self.layout
-        self.disabled_bindings=True
+        self.disabled_bindings = True
         commentControl = BufferControl(
             Buffer(accept_handler=self._set_user_comment), focus_on_click=True
         )
@@ -375,7 +398,7 @@ class HspApp(Application):
         Then replaces the original layout.
         """
         self.playback.hist[self.playback.playback_position - 1].comment = buff.text
-        self.disabled_bindings=False
+        self.disabled_bindings = False
         self.layout = self._savedLayout
         self.update_display()
         self.invalidate()
@@ -411,26 +434,25 @@ class HspApp(Application):
     # Setting Up Loop to async iter over history
     ###################################################
 
-    async def command_loop(self):
+    async def msg_consumer(self, event_loop):
         """Primary loop for receiving/displaying commands from playback
 
-        Asynchronously iterates over the Command objects in the playback's history.
+        Asynchronously consume messages from msg_queue.  The playback object
+        publishes events to the msg_queue asynchronously depending on the 
+        playback mode.
         Takes the command object and displays it to the screen
         """
         # give this thread control over playback for manual mode
         # lock is released by certain key bindings
+        conn = await aio_pika.connect("amqp://guest:guest@172.17.0.2/")
+        channel = await conn.channel()
+        msg_queue = await channel.declare_queue("messages")
         await self.playback.loop_lock.acquire()
-        async for command in self.playback:
-            if self.playback.playback_mode == "MANUAL":
-                # regain the lock for MANUAL mode
-                await self.playback.loop_lock.acquire()
 
-            self.command_cache.append(command)
-            # Update text in windows
-            self.update_display()
-        else:
-            # future: fix; this will fail at the end of a playback history
-            self.command_cache.append(command)
+        while True:
+            await msg_queue.consume(self.event_received)
+            if self.playback.playback_mode == "MANUAL":
+                await self.playback.loop_lock.acquire()
             self.update_display()
 
     async def redraw_timer(self):

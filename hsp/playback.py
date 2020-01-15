@@ -5,12 +5,14 @@ Author: starksimilarity@gmail.com
 
 import asyncio
 import datetime
+import json
+import pika
 
 SESSION_FOLDER = "sessions"
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
 
-from command import Command
+from command import Command, CommandEncoder
 from loader import PBLoader
 
 
@@ -91,7 +93,7 @@ class Playback:
         self._elapsed_time_at_pause = datetime.timedelta(0)
         self._suspend_time = datetime.datetime.now()
         self._time_since_last_event = datetime.timedelta(0)
-
+        self.message_queue = establish_conn_to_queue()
         if histfile:
             self.hist = self._load_hist(histfile, histfile_typehint)
         else:
@@ -153,15 +155,20 @@ class Playback:
             self.current_time = self.hist[self.playback_position - 1].time
             self._time_since_last_event = datetime.timedelta(0)
             self._suspend_time = datetime.datetime.now()
-
-            return self.hist[self.playback_position - 1]
+            returned_event = self.hist[self.playback_position - 1]
+            self.message_queue.basic_publish(
+                exchange="",
+                routing_key="messages",
+                body=json.dumps(returned_event, cls=CommandEncoder),
+            )
+            return returned_event
         except IndexError as e:
             raise StopAsyncIteration(e)
 
     async def run_async(self):
         """Runs internal playback timers for async mode
         """
-        while True:
+        async for _ in self:
             if not self.paused:
                 self.current_time = (
                     self.current_time
@@ -372,3 +379,15 @@ def merge_history(playbacks):
             print(e)
             continue
     return combined_playback
+
+
+def establish_conn_to_queue():
+    try:
+        conn = pika.BlockingConnection(pika.ConnectionParameters("172.17.0.2"))
+        channel = conn.channel()
+        channel.queue_declare(queue="messages")
+        return channel
+    except Exception as e:
+        print(e)
+
+

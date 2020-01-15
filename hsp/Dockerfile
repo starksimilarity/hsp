@@ -6,5 +6,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
 
-WORKDIR /usr/src/app/hsp/
+WORKDIR /usr/src/app/
 CMD ["python", "hsp.py"]

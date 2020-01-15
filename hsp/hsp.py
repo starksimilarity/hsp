@@ -46,14 +46,14 @@ def main():
     loop = asyncio.get_event_loop()
     use_asyncio_event_loop()
     try:
-        # Run command_loop and hspApp.run_async next to each other
+        # Run msg_consumer and hspApp.run_async next to each other
         # future: handle when one completes before the other
         loop.run_until_complete(
             asyncio.gather(
-                hspApp.command_loop(),
                 hspApp.run_async().to_asyncio_future(),
+                hspApp.msg_consumer(loop),
                 hspApp.playback.run_async(),
-                hspApp.redraw_timer(),
+                # hspApp.redraw_timer(),
             )
         )
     finally:

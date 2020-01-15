@@ -1,8 +1,30 @@
 import datetime
+import json
+
+
+class CommandEncoder(json.JSONEncoder):
+    def default(self, o):
+        try:
+            serializable_dict = {}
+            serializable_dict["time"] = str(o.time)
+            serializable_dict["user"] = o.user
+            serializable_dict["hostUUID"] = o.hostUUID
+            serializable_dict["result"] = o.result
+            serializable_dict["command"] = o.command
+            serializable_dict["flagged"] = str(o.flagged)
+            serializable_dict["comments"] = str(o.comment)
+
+        except Exception:
+            print("something went wrong")
+        else:
+            return serializable_dict
+        return json.JSONEncoder.default(self, o)
 
 
 class Command:
-    """Defines the structure of a single command
+    """Defines the structure of a single command.  Inherits JSONEncoder and
+    implements the 'default' method so that the object can be written to 
+    a message queue.
 
     Attributes
     ==========
@@ -18,8 +40,8 @@ class Command:
         the result from the command
     flagged : bool
         event is marked
-    comments : str
-        comments for replay
+    comment : str
+        comment for replay
 
     Methods
     =======
@@ -27,6 +49,8 @@ class Command:
         Returns a dictionary representation of the command
     __str__(self)
         how to display the command when printed
+    default(self)
+        Method used when trying to JSON Serialize an instance
     """
 
     def __init__(
