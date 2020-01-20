@@ -27,9 +27,6 @@ from prompt_toolkit.layout import Layout, Dimension
 from prompt_toolkit.widgets import Box, Frame, TextArea
 from prompt_toolkit.widgets.toolbars import FormattedTextToolbar
 
-from playback import Playback, merge_history # Remove when fully using RMQ
-from utils.utils import parseconfig
-
 SAVE_LOCATION = "SavedPlayback"
 
 
@@ -78,7 +75,7 @@ class HspApp(Application):
         Async method to force a redraw of the app every hundreth second
     """
 
-    def __init__(self, playback, save_location=None, *args, **kwargs):
+    def __init__(self, save_location=None, *args, **kwargs):
 
         self.mainViewCondition = partial(self.mainView, self)
         self.mainViewCondition = Condition(self.mainViewCondition)
@@ -98,7 +95,6 @@ class HspApp(Application):
             self.save_location = save_location
         else:
             self.save_location = SAVE_LOCATION
-        self.playback = playback # Remove when fully using RMQ
         self._savedLayout = Layout(Window())
         self.command_cache = deque([], maxlen=5)
 
@@ -174,20 +170,27 @@ class HspApp(Application):
         Pauses the playback in the __enter__ section.  If the playback was
         originally paused, the __exit__ section will keep the playback paused,
         otherwise it will resume play of the playback
+
+        #TODO: Rework this to support the microservice arch.
+        """
         """
         _originally_paused = self.playback.paused
-        self.playback.pause()
+        #self.playback.pause()
         self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body="pause"
         )
         #RMQ: Publish pause command
         yield
         if not _originally_paused:
-            self.playback.play()
+            #self.playback.play()
             self.cmd_queue.basic_publish(
                     exchange="", routing_key="commands", body="play"
             )
             #RMQ: Publish play command
+        """
+        pass
+        yield
+
 
     @contextmanager
     def bindings_off(self):
@@ -215,7 +218,7 @@ class HspApp(Application):
         @bindings.add("right", filter=self.mainViewCondition)
         def _(event):
             try:
-                self.playback.loop_lock.release()
+                #self.playback.loop_lock.release()
                 self.cmd_queue.basic_publish(
                     exchange="", routing_key="commands", body="release"
                 )
@@ -225,22 +228,23 @@ class HspApp(Application):
 
         @bindings.add("p", filter=self.mainViewCondition)
         def _(event):
-            if self.playback.paused:
-                self.playback.play()
-                self.cmd_queue.basic_publish(
-                    exchange="", routing_key="commands", body="play"
-                )
-                #RMQ: Publish play command
+            """TODO: Add back in logic to detect if the playback is
+            currently paused and make this a toggle
+            """
+            self.cmd_queue.basic_publish(
+                exchange="", routing_key="commands", body="play"
+            )
+            """
             else:
-                self.playback.pause()
                 self.cmd_queue.basic_publish(
                     exchange="", routing_key="commands", body="pause"
                 )
                 #RMQ: Publish pause command
+            """
 
         @bindings.add("f", filter=self.mainViewCondition)
         def _(event):
-            self.playback.speedup()
+            #self.playback.speedup()
             self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body="speedup"
             )
@@ -248,7 +252,7 @@ class HspApp(Application):
 
         @bindings.add("s", filter=self.mainViewCondition)
         def _(event):
-            self.playback.slowdown()
+            #self.playback.slowdown()
             self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body="slowdown"
             )
@@ -261,7 +265,7 @@ class HspApp(Application):
 
         @bindings.add("c-m", filter=self.mainViewCondition)
         def _(event):
-            self.playback.change_playback_mode()
+            #self.playback.change_playback_mode()
             self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body="cyclemode"
             )
@@ -275,7 +279,7 @@ class HspApp(Application):
         @bindings.add("c-f", filter=self.mainViewCondition)
         def _(event):
             # set the flag in both the self.playback and the local cache for display
-            self.playback.flag_current_command()
+            #self.playback.flag_current_command()
             self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body="flag"
             )
@@ -301,7 +305,7 @@ class HspApp(Application):
             if event.app.displayingHelpScreen:
                 # exit help screen
                 event.app.displayingHelpScreen = False
-                self.playback.pause()
+                #self.playback.pause()
                 self.cmd_queue.basic_publish(
                     exchange="", routing_key="commands", body="pause"
                 )
@@ -343,6 +347,7 @@ class HspApp(Application):
         _ : prompt_toolkit.formatted_text.HTML
             Text for the bottom toolbar for the app
         """
+        """
         #Going to have to replace a lot of this text with either local vars or pull from msg_queue
         if self.playback.playback_mode == self.playback.EVENINTERVAL:
             #RMQ: May have to store this state locally
@@ -363,7 +368,9 @@ class HspApp(Application):
                 f"<th>PLAYBACK RATE: {self.playback.playback_rate}</th>"
                 "</tr></table>"
             )
-
+        """
+        return HTML("Working on this")
+    
     def render_command(self, command):
         """Return string of command object specific to this UI
 
@@ -437,7 +444,7 @@ class HspApp(Application):
         Takes the user comment and sets that as the current command's comment.
         Then replaces the original layout.
         """
-        self.playback.hist[self.playback.playback_position - 1].comment = buff.text
+        #self.playback.hist[self.playback.playback_position - 1].comment = buff.text
         self.cmd_queue.basic_publish(
                 exchange="", routing_key="commands", body=f"comment: {buff.text}"
         )
@@ -491,12 +498,12 @@ class HspApp(Application):
         conn = await aio_pika.connect("amqp://guest:guest@172.17.0.2/")
         channel = await conn.channel()
         msg_queue = await channel.declare_queue("messages")
-        await self.playback.loop_lock.acquire() # This goes away when using RMQ
+        #await self.playback.loop_lock.acquire() # This goes away when using RMQ
 
         while True:
             await msg_queue.consume(self.event_received)
-            if self.playback.playback_mode == "MANUAL":
-                await self.playback.loop_lock.acquire()
+            #if self.playback.playback_mode == "MANUAL":
+            #    await self.playback.loop_lock.acquire()
                 #This goes away when using RMQ
             self.update_display()
 

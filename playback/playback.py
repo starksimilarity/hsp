@@ -225,7 +225,7 @@ class Playback:
             self.change_playback_mode()
         elif cmd_body == "flag":
             self.flag_current_command()
-        elif cmd_body.startswith("comment:"):
+        elif cmd_body == "comment:":
             pass
 
 
