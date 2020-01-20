@@ -3,6 +3,7 @@
 Author: starksimilarity@gmail.com
 """
 
+import aio_pika
 import asyncio
 import datetime
 import json
@@ -166,9 +167,20 @@ class Playback:
             raise StopAsyncIteration(e)
 
     async def run_async(self):
+        """Kicks off the playback to begin running asynchronously.
+
+        The 'async for _ in self' calls the __aiter__ and __anext__ methods.
+        Those are used to cycle through the events in the playback object's
+        history and then to publish events to the messages queue
+        """
+
+        async for _ in self:
+            pass
+
+    async def run_timers(self):
         """Runs internal playback timers for async mode
         """
-        async for _ in self:
+        while True:
             if not self.paused:
                 self.current_time = (
                     self.current_time
@@ -180,9 +192,42 @@ class Playback:
                     + (datetime.datetime.now() - self._suspend_time)
                     * self.playback_rate
                 )
-
             self._suspend_time = datetime.datetime.now()
             await asyncio.sleep(0.001)
+
+    async def cmd_consumer(self, event_loop):
+        """Listener for incoming commands
+        """
+        # replace this with service discovery
+        conn = await aio_pika.connect("amqp://guest:guest@172.17.0.2/")
+        channel = await conn.channel()
+        cmd_queue = await channel.declare_queue("commands")
+
+        while True:
+            await cmd_queue.consume(self.cmd_received)
+
+    async def cmd_received(self, cmd):
+        """Callback method for when the playback object receives a command
+        """
+        cmd_body = cmd.body
+        if cmd_body == "play":
+            self.play()
+        elif cmd_body == "pause":
+            self.pause()
+        elif cmd_body == "speedup":
+            self.speedup()
+        elif cmd_body == "slowdown":
+            self.slowdown()
+        elif cmd_body == "release":
+            # find a way to release the next object
+            pass
+        elif cmd_body == "cyclemode":
+            self.change_playback_mode()
+        elif cmd_body == "flag":
+            self.flag_current_command()
+        elif cmd_body.startswith("comment:"):
+            pass
+
 
     def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.

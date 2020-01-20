@@ -1,17 +1,12 @@
-"""Example UI for creating and controlling a playback object
-
-Creates a playback object and a prompt_toolkit Application and runs
-each asynchronously.
+"""Creates a playback object and runs it asynchronously
 
 Author: starksimilarity@gmail.com
 """
 
 import asyncio
-from prompt_toolkit.eventloop import use_asyncio_event_loop
 
 from playback import Playback, merge_history
 from utils.utils import parseconfig
-from hspApp import HspApp
 
 DEFAULT_HIST = "sessions/histfile"
 HISTFILE_LIST = "histfile_list"
@@ -36,22 +31,17 @@ def main():
     playback.playback_mode = "MANUAL"
 
     ###################################################
-    # Setting Up HspApp object
-    ###################################################
-    hspApp = HspApp(playback, SAVE_LOCATION)
-
-    ###################################################
     # Setting Up async loop
     ###################################################
     loop = asyncio.get_event_loop()
-    use_asyncio_event_loop()
     try:
         # Run msg_consumer and hspApp.run_async next to each other
         # future: handle when one completes before the other
         loop.run_until_complete(
             asyncio.gather(
-                hspApp.run_async().to_asyncio_future(),
-                hspApp.msg_consumer(loop),
+                playback.run_async(),
+                playback.run_timers(),
+                playback.cmd_consumer(loop),
             )
         )
     finally:
