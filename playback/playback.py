@@ -94,7 +94,8 @@ class Playback:
         self._elapsed_time_at_pause = datetime.timedelta(0)
         self._suspend_time = datetime.datetime.now()
         self._time_since_last_event = datetime.timedelta(0)
-        self.message_queue = establish_conn_to_queue()
+        self.rmq_channel = establish_rmq_exchanges()
+
         if histfile:
             self.hist = self._load_hist(histfile, histfile_typehint)
         else:
@@ -114,6 +115,9 @@ class Playback:
 
     async def __aiter__(self):
         # initialize internal timers
+        self.rmq_channel.basic_publish(
+            exchange="debug", routing_key="", body="Entered __aiter__"
+        )
         self._start_time = datetime.datetime.now()
         self._elapsed_time_at_pause = datetime.timedelta(0)
         self.current_time = self.hist[self.playback_position].time
@@ -157,11 +161,6 @@ class Playback:
             self._time_since_last_event = datetime.timedelta(0)
             self._suspend_time = datetime.datetime.now()
             returned_event = self.hist[self.playback_position - 1]
-            self.message_queue.basic_publish(
-                exchange="",
-                routing_key="messages",
-                body=json.dumps(returned_event, cls=CommandEncoder),
-            )
             return returned_event
         except IndexError as e:
             raise StopAsyncIteration(e)
@@ -174,8 +173,13 @@ class Playback:
         history and then to publish events to the messages queue
         """
 
-        async for _ in self:
-            pass
+        async for event in self:
+            self.rmq_channel.basic_publish(
+                exchange="messages",
+                routing_key="",
+                body=json.dumps(event, cls=CommandEncoder),
+            )
+            await self.loop_lock.acquire()  # released by received the "release" cmd in rmq
 
     async def run_timers(self):
         """Runs internal playback timers for async mode
@@ -195,39 +199,61 @@ class Playback:
             self._suspend_time = datetime.datetime.now()
             await asyncio.sleep(0.001)
 
-    async def cmd_consumer(self, event_loop):
+    async def cmd_consumer(self):
         """Listener for incoming commands
         """
         # replace this with service discovery
-        conn = await aio_pika.connect("amqp://guest:guest@172.17.0.2/")
+        conn = await aio_pika.connect_robust("amqp://guest:guest@172.17.0.2/")
         channel = await conn.channel()
-        cmd_queue = await channel.declare_queue("commands")
+        cmd_exchange = await channel.declare_exchange(
+            "commands", aio_pika.ExchangeType.FANOUT
+        )
+        cmd_queue = await channel.declare_queue("", exclusive=True)
+        await cmd_queue.bind(cmd_exchange)
 
+        self.rmq_channel.basic_publish(
+            exchange="debug", routing_key="", body=f"Running Command Consumer"
+        )
         while True:
             await cmd_queue.consume(self.cmd_received)
 
-    async def cmd_received(self, cmd):
+    def cmd_received(self, cmd):
         """Callback method for when the playback object receives a command
         """
-        cmd_body = cmd.body
-        if cmd_body == "play":
-            self.play()
-        elif cmd_body == "pause":
-            self.pause()
-        elif cmd_body == "speedup":
-            self.speedup()
-        elif cmd_body == "slowdown":
-            self.slowdown()
-        elif cmd_body == "release":
-            # find a way to release the next object
-            pass
-        elif cmd_body == "cyclemode":
-            self.change_playback_mode()
-        elif cmd_body == "flag":
-            self.flag_current_command()
-        elif cmd_body == "comment:":
-            pass
+        with cmd.process():
+            cmd_body = cmd.body.decode()
 
+            self.rmq_channel.basic_publish(
+                exchange="debug", routing_key="", body=f"got command: {cmd_body}"
+            )
+            if cmd_body == "play":
+                self.play()
+            elif cmd_body == "pause":
+                self.pause()
+            elif cmd_body == "speedup":
+                self.speedup()
+            elif cmd_body == "slowdown":
+                self.slowdown()
+            elif cmd_body == "release":
+                # find a way to release the next object
+                self.rmq_channel.basic_publish(
+                    exchange="debug", routing_key="", body="Got a release"
+                )
+                try:
+                    self.loop_lock.release()
+                except Exception as e:
+                    self.rmq_channel.basic_publish(
+                        exchange="debug",
+                        routing_key="",
+                        body=f"error releasing lock: {str(e)}",
+                    )
+
+            elif cmd_body == "cyclemode":
+                self.change_playback_mode()
+            elif cmd_body == "flag":
+                self.flag_current_command()
+            elif cmd_body == "comment:":
+                pass
 
     def _load_hist(self, histfile, histfile_typehint=None):
         """Sets the playback's history.
@@ -426,13 +452,13 @@ def merge_history(playbacks):
     return combined_playback
 
 
-def establish_conn_to_queue():
+def establish_rmq_exchanges():
     try:
         conn = pika.BlockingConnection(pika.ConnectionParameters("172.17.0.2"))
         channel = conn.channel()
-        channel.queue_declare(queue="messages")
+        channel.exchange_declare(exchange="messages", exchange_type="fanout")
+        channel.exchange_declare(exchange="commands", exchange_type="fanout")
+        channel.exchange_declare(exchange="debug", exchange_type="fanout")
         return channel
     except Exception as e:
         print(e)
-
-

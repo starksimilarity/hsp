@@ -39,9 +39,7 @@ def main():
         # future: handle when one completes before the other
         loop.run_until_complete(
             asyncio.gather(
-                playback.run_async(),
-                playback.run_timers(),
-                playback.cmd_consumer(loop),
+                playback.run_async(), playback.run_timers(), playback.cmd_consumer()
             )
         )
     finally:

@@ -131,13 +131,45 @@ class HspApp(Application):
         ##########################################
         self.conn = pika.BlockingConnection(pika.ConnectionParameters("172.17.0.2"))
         self.cmd_queue = self.conn.channel()
-        self.cmd_queue.queue_declare("commands")
+        self.cmd_queue.exchange_declare(exchange="commands", exchange_type="fanout")
 
     async def event_received(self, msg):
         """Callback method when aio-pika receives a message
         """
-        new_command = json.loads(msg.body)
+        try:
+            self.cmd_queue.basic_publish(
+                exchange="debug",
+                routing_key="",
+                body=f"{datetime.datetime.now()} - event received",
+            )
+            new_command = json.loads(msg.body)
+            self.cmd_queue.basic_publish(
+                exchange="debug",
+                routing_key="",
+                body=f"{datetime.datetime.now()} - event loaded",
+            )
+
+        except Exception as e:
+            pass
+
         self.command_cache.append(new_command)
+        self.cmd_queue.basic_publish(
+            exchange="debug",
+            routing_key="",
+            body=f"{datetime.datetime.now()} - event appended",
+        )
+        self.update_display()
+        self.cmd_queue.basic_publish(
+            exchange="debug",
+            routing_key="",
+            body=f"{datetime.datetime.now()} - display updated",
+        )
+        self.invalidate()
+        self.cmd_queue.basic_publish(
+            exchange="debug",
+            routing_key="",
+            body=f"{datetime.datetime.now()} - self_invalidate finished",
+        )
 
     @staticmethod
     def mainView(self):
@@ -191,7 +223,6 @@ class HspApp(Application):
         pass
         yield
 
-
     @contextmanager
     def bindings_off(self):
         """Context manager for disabling key_bindings for a given scope
@@ -218,9 +249,8 @@ class HspApp(Application):
         @bindings.add("right", filter=self.mainViewCondition)
         def _(event):
             try:
-                #self.playback.loop_lock.release()
                 self.cmd_queue.basic_publish(
-                    exchange="", routing_key="commands", body="release"
+                    exchange="commands", routing_key="", body="release"
                 )
 
             except Exception as e:
@@ -232,7 +262,7 @@ class HspApp(Application):
             currently paused and make this a toggle
             """
             self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body="play"
+                exchange="commands", routing_key="", body="play"
             )
             """
             else:
@@ -244,19 +274,15 @@ class HspApp(Application):
 
         @bindings.add("f", filter=self.mainViewCondition)
         def _(event):
-            #self.playback.speedup()
             self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body="speedup"
+                exchange="commands", routing_key="", body="speedup"
             )
-            #RMQ: Publish speedup command
 
         @bindings.add("s", filter=self.mainViewCondition)
         def _(event):
-            #self.playback.slowdown()
             self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body="slowdown"
+                exchange="commands", routing_key="", body="slowdown"
             )
-            #RMQ: Publish slowdown command
 
         @bindings.add("q")
         @bindings.add("c-c")
@@ -265,11 +291,9 @@ class HspApp(Application):
 
         @bindings.add("c-m", filter=self.mainViewCondition)
         def _(event):
-            #self.playback.change_playback_mode()
             self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body="cyclemode"
+                exchange="commands", routing_key="", body="cyclemode"
             )
-            #RMQ: Publish change playback mode command
 
         @bindings.add("c", filter=self.mainViewCondition)
         def _(event):
@@ -278,21 +302,23 @@ class HspApp(Application):
 
         @bindings.add("c-f", filter=self.mainViewCondition)
         def _(event):
-            # set the flag in both the self.playback and the local cache for display
-            #self.playback.flag_current_command()
             self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body="flag"
+                exchange="commands", routing_key="", body="flag"
             )
-            #RMQ: Publish flag_current command
             self.update_display()
 
         @bindings.add("c-s", filter=self.mainViewCondition)
         def _(event):
+            """
             time = datetime.datetime.now()
             with open(
                 self.save_location + f"_{time.strftime('%Y%m%d%H%M')}", "wb+"
             ) as outfi:
                 pickle.dump(self.playback.hist, outfi)
+
+            # TODO: Remove dependancy on playback object
+            """
+            pass
 
         @bindings.add("g", filter=self.mainViewCondition)
         def _(event):
@@ -305,11 +331,9 @@ class HspApp(Application):
             if event.app.displayingHelpScreen:
                 # exit help screen
                 event.app.displayingHelpScreen = False
-                #self.playback.pause()
                 self.cmd_queue.basic_publish(
-                    exchange="", routing_key="commands", body="pause"
+                    exchange="commands", routing_key="", body="pause"
                 )
-                #RMQ: Publish pause command
                 event.app.layout = event.app.savedLayout
                 event.app.invalidate()
 
@@ -370,7 +394,7 @@ class HspApp(Application):
             )
         """
         return HTML("Working on this")
-    
+
     def render_command(self, command):
         """Return string of command object specific to this UI
 
@@ -444,11 +468,11 @@ class HspApp(Application):
         Takes the user comment and sets that as the current command's comment.
         Then replaces the original layout.
         """
-        #self.playback.hist[self.playback.playback_position - 1].comment = buff.text
+        # self.playback.hist[self.playback.playback_position - 1].comment = buff.text
         self.cmd_queue.basic_publish(
-                exchange="", routing_key="commands", body=f"comment: {buff.text}"
+            exchange="commands", routing_key="", body=f"comment: {buff.text}"
         )
-        #RMQ: Publish comment
+        # RMQ: Publish comment
         self.disabled_bindings = False
         self.layout = self._savedLayout
         self.update_display()
@@ -485,7 +509,7 @@ class HspApp(Application):
     # Setting Up Loop to async iter over history
     ###################################################
 
-    async def msg_consumer(self, event_loop):
+    async def msg_consumer(self):
         """Primary loop for receiving/displaying commands from playback
 
         Asynchronously consume messages from msg_queue.  The playback object
@@ -495,17 +519,23 @@ class HspApp(Application):
         """
         # give this thread control over playback for manual mode
         # lock is released by certain key bindings
-        conn = await aio_pika.connect("amqp://guest:guest@172.17.0.2/")
+        conn = await aio_pika.connect_robust("amqp://guest:guest@172.17.0.2/")
         channel = await conn.channel()
-        msg_queue = await channel.declare_queue("messages")
-        #await self.playback.loop_lock.acquire() # This goes away when using RMQ
+        msg_exchange = await channel.declare_exchange(
+            "messages", aio_pika.ExchangeType.FANOUT
+        )
+        msg_queue = await channel.declare_queue("", exclusive=True)
+        await msg_queue.bind(msg_exchange)
 
         while True:
+            """
+            self.cmd_queue.basic_publish(
+                exchange="debug",
+                routing_key="",
+                body=f"{datetime.datetime.now()} - Waiting for event"
+            )
+            """
             await msg_queue.consume(self.event_received)
-            #if self.playback.playback_mode == "MANUAL":
-            #    await self.playback.loop_lock.acquire()
-                #This goes away when using RMQ
-            self.update_display()
 
     async def redraw_timer(self):
         """Async method to force a redraw of the app every hundreth second

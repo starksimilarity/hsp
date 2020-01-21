@@ -9,8 +9,6 @@ Author: starksimilarity@gmail.com
 import asyncio
 from prompt_toolkit.eventloop import use_asyncio_event_loop
 
-#from playback import Playback, merge_history
-#from utils.utils import parseconfig
 from hspApp import HspApp
 
 DEFAULT_HIST = "sessions/histfile"
@@ -22,21 +20,6 @@ def main():
     """Sets up hspApp then runs in async loop
     """
 
-    ###################################################
-    # Setting Up Playback object
-    ###################################################
-    """
-    #moved to playback_controller.py
-
-    files = parseconfig("histfile_list")
-
-    playback_list = []
-    for fi, hint in files.items():
-        playback_list.append(Playback(fi, hint))
-
-    playback = merge_history(playback_list)
-    playback.playback_mode = "MANUAL"
-    """
     ###################################################
     # Setting Up HspApp object
     ###################################################
@@ -53,7 +36,8 @@ def main():
         loop.run_until_complete(
             asyncio.gather(
                 hspApp.run_async().to_asyncio_future(),
-                hspApp.msg_consumer(loop),
+                hspApp.msg_consumer(),
+                # hspApp.redraw_timer(), # not convinced this does anything meaningful
             )
         )
     finally:
